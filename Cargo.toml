@@ -1,2 +1,3 @@
 [workspace]
 members = ["kommander", "nodus"]
+resolver = "3"
