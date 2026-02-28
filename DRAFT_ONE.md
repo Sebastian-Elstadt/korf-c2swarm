@@ -29,3 +29,7 @@ Whatever the front is, it would be prudent to open up as many communication medi
 - Attempts heartbeat packet frequently.W
 - Will try to always keep a UDP port open, but stops every hour or so and starts again to get a fresh port and tries to share that port with C2 and/or peers to avoid suspicion.
 - Communications will either be with peers or C2. C2 comms likely to happen via hops to other peers as proxies.
+
+### C3 Module
+
+Command and Control Communications module. Exposes an interface for sending any arbitrary payload to the C2. It is the C3 module's responsibility to know by what means it can reach the C2 and try its best to send it the payload. It is also responsible for receiving payloads from the C2, and passing them to the appropriate module for execution. It will also need to know how to handle the payloads it receives, such as if it is a task or an update to the node's knowledge of the network or whatever else.
