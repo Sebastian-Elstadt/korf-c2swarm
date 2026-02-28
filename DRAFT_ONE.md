@@ -26,6 +26,6 @@ Whatever the front is, it would be prudent to open up as many communication medi
 - Knows what the C2's front is, needs various ways to reach the front.
 - Keeps low profile in terms of network traffic, and cpu/ram/disk usage.
 - Has library of operations it can perform if instructed by the C2.
-- Attempts heartbeat every 1 minute.
+- Attempts heartbeat packet frequently.W
 - Will try to always keep a UDP port open, but stops every hour or so and starts again to get a fresh port and tries to share that port with C2 and/or peers to avoid suspicion.
 - Communications will either be with peers or C2. C2 comms likely to happen via hops to other peers as proxies.
