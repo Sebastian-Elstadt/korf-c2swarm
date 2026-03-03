@@ -1,4 +1,5 @@
 use sha2::{Digest, Sha256};
+use std::time::{SystemTime, UNIX_EPOCH};
 
 /**
  * Scrapes identification info from the host device and uses the hash of it as the nodus ID.
@@ -37,16 +38,16 @@ pub fn new() -> Identity {
     ] {
         if let Some(str) = detail {
             hash.update(str.as_bytes());
-        }
-        else {
+        } else {
             hash.update(b"?");
         }
 
         hash.update(b"\0");
     }
 
-    hash.update(b"korf-nodus");
-    // Todo: would be good to also add a UUID to this hash. Not too confident in the uniqueness of these hashes.
+    let time_since_epoch = SystemTime::now().duration_since(UNIX_EPOCH).expect("Failure determing time since epoch");
+    hash.update(time_since_epoch.as_millis().to_le_bytes());
+    hash.update(b"\0korf-nodus");
     let nodus_id = base85::encode(&hash.finalize());
 
     Identity {
