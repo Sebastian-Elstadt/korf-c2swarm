@@ -45,7 +45,9 @@ pub fn new() -> Identity {
         hash.update(b"\0");
     }
 
-    let time_since_epoch = SystemTime::now().duration_since(UNIX_EPOCH).expect("Failure determing time since epoch");
+    let time_since_epoch = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .expect("Failure determing time since epoch");
     hash.update(time_since_epoch.as_millis().to_le_bytes());
     hash.update(b"\0korf-nodus");
     let nodus_id = base85::encode(&hash.finalize());
@@ -59,4 +61,8 @@ pub fn new() -> Identity {
         device_name,
         mac_addr,
     }
+}
+
+fn generate_asym_keypair() {
+    let mut csprng = OsRng
 }
