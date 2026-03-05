@@ -1,3 +1,3 @@
 [workspace]
-members = ["kommander", "nodus"]
+members = ["kommander", "nodus", "nodus_asym_sec"]
 resolver = "3"

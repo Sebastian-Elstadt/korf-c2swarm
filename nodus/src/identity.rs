@@ -1,3 +1,4 @@
+use nodus_asym_sec::AsymSecHandler;
 use sha2::{Digest, Sha256};
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -5,7 +6,6 @@ use std::time::{SystemTime, UNIX_EPOCH};
  * Scrapes identification info from the host device and uses the hash of it as the nodus ID.
  */
 
-#[derive(Debug)]
 pub struct Identity {
     pub nodus_id: String,
     pub cpu_arch: String,
@@ -14,6 +14,7 @@ pub struct Identity {
     pub account_name: Option<String>,
     pub device_name: Option<String>,
     pub mac_addr: Option<String>,
+    pub asym_sec: Box<dyn AsymSecHandler>,
 }
 
 pub fn new() -> Identity {
@@ -60,9 +61,6 @@ pub fn new() -> Identity {
         account_name,
         device_name,
         mac_addr,
+        asym_sec: nodus_asym_sec::get_implementation(),
     }
-}
-
-fn generate_asym_keypair() {
-    let mut csprng = OsRng
 }
