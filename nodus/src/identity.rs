@@ -17,7 +17,7 @@ pub struct Identity {
     pub asym_sec: Box<dyn AsymSecHandler>,
 }
 
-pub fn new() -> Identity {
+pub fn init() -> Identity {
     let cpu_arch = whoami::cpu_arch().to_string();
     let hostname = whoami::hostname().ok();
     let username = whoami::username().ok();
