@@ -1,5 +1,7 @@
 use thiserror::Error;
 
+// -- Reach
+
 #[derive(Error, Debug)]
 pub enum DnsReachError {
     #[error(transparent)]
@@ -52,10 +54,21 @@ pub enum ReachError {
     },
 }
 
+// -- Registration
+
 #[derive(Error, Debug)]
 pub enum RegistrationError {
     #[error(transparent)]
     Reach(#[from] ReachError),
+
+    #[error("Connection has failed: {0:?}")]
+    Connection(std::io::Error),
+
+    #[error("Communication has failed: {0:?}")]
+    Communication(std::io::Error),
+
+    #[error("Server did not respond to registration")]
+    ServerSilence,
 
     #[error("{0}")]
     Unknown(String),

