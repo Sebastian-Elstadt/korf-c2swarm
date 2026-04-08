@@ -69,6 +69,9 @@ pub enum RegistrationError {
 
     #[error("Server did not respond to registration")]
     ServerSilence,
+    
+    #[error("Server did not respond in time. {0}")]
+    Timeout(String),
 
     #[error("{0}")]
     Unknown(String),
