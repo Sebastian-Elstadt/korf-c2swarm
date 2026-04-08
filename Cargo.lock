@@ -599,6 +599,8 @@ name = "kommander"
 version = "0.1.0"
 dependencies = [
  "base85",
+ "thiserror 2.0.18",
+ "tokio",
 ]
 
 [[package]]

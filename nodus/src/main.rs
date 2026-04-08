@@ -29,5 +29,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         sleep(Duration::from_secs(5)).await;
     }
 
+    // todo: loop waiting for commands from c2
+    // todo: heartbeat loop
+
     Ok(())
 }
