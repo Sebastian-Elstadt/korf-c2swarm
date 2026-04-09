@@ -14,13 +14,11 @@ services:
       - korf_db:/var/lib/postgresql/data
     networks:
       - korf_net
-    ports:
-      - 5432:5432
 
   kommander:
     build:
-      context: .
-      dockerfile: kommander.dockerfile
+      context: kommander
+      dockerfile: Dockerfile
     environment:
       DATABASE_URL: postgres://${POSTGRES_USER:-korf}:${POSTGRES_PASSWORD:-korf}@db:5432/${POSTGRES_DB:-korf}?sslmode=disable
       UDP_BIND: ${UDP_BIND:-0.0.0.0:8888}
