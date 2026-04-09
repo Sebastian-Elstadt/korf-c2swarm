@@ -13,7 +13,9 @@ FROM rust:1.88-bookworm AS rust-builder
 WORKDIR /app
 
 COPY Cargo.toml Cargo.lock ./
-COPY kommander ./kommander
+COPY kommander/ ./kommander/
+COPY nodus/ ./nodus/
+COPY nodus_asym_sec/ ./nodus_asym_sec/
 
 RUN cargo build --release -p kommander
 

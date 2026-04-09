@@ -6,3 +6,4 @@ agent-transcripts
 dist
 .angular
 .vscode
+node_modules
