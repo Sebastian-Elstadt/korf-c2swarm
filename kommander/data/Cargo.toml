@@ -1,0 +1,14 @@
+[package]
+name = "data"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+sqlx = { version = "0.8.6", features = [
+    "runtime-tokio",
+    "tls-native-tls",
+    "postgres",
+    "chrono",
+] }
+async-trait = "0.1.89"
+domain = { path = "../domain" }

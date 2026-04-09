@@ -1,4 +1,3 @@
-use crate::db::RegistrationInput;
 use thiserror::Error;
 
 pub const MAGIC_0: u8 = 77;
@@ -15,6 +14,19 @@ pub enum ProtocolError {
     UnexpectedMessageType(u8),
     #[error("invalid UTF-8 in string field")]
     InvalidUtf8,
+}
+
+#[derive(Debug, Clone)]
+pub struct RegistrationInput {
+    pub nodus_id: [u8; 32],
+    pub mac_addr: String,
+    pub asym_sec_algo: i16,
+    pub asym_sec_pubkey: Vec<u8>,
+    pub cpu_arch: String,
+    pub hostname: Option<String>,
+    pub username: Option<String>,
+    pub device_name: Option<String>,
+    pub account_name: Option<String>,
 }
 
 pub fn parse_registration(data: &[u8]) -> Result<RegistrationInput, ProtocolError> {

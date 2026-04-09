@@ -1,0 +1,13 @@
+[package]
+name = "app"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+tokio = { version = "1.49.0", features = ["full"] }
+chrono = { version = "0.4", features = ["serde"] }
+thiserror = "2.0.18"
+tower-http = { version = "0.6.8", features = ["fs"] }
+domain = { path = "../domain" }
+data = { path = "../data" }
+web = { path = "../web" }
