@@ -1,0 +1,145 @@
+<div class="dashboard">
+  <section class="panel nodes-panel" aria-labelledby="nodes-heading">
+    <h2 id="nodes-heading" class="panel-title">Nodes</h2>
+    @if (nodes().length === 0) {
+      <p class="muted">Loading registry…</p>
+    } @else {
+      <ul class="node-list">
+        @for (node of nodes(); track node.id) {
+          <li>
+            <div
+              class="node-card"
+              [class.node-card--active]="selectedNodeId() === node.id"
+              role="button"
+              tabindex="0"
+              (click)="selectNode(node.id)"
+              (keydown.enter)="selectNode(node.id)"
+              (keydown.space)="$event.preventDefault(); selectNode(node.id)"
+            >
+              <div class="node-card__row">
+                <span
+                  class="presence"
+                  [class.presence--on]="isOnline(node)"
+                  [attr.aria-label]="isOnline(node) ? 'online' : 'offline'"
+                ></span>
+                <span class="node-card__name">{{ displayName(node) }}</span>
+              </div>
+              <div class="node-card__meta">
+                <span
+                  class="badge"
+                  [class.badge--push]="node.deliveryMode === 'push'"
+                  [class.badge--pull]="node.deliveryMode === 'pull'"
+                >
+                  {{ node.deliveryMode }}
+                </span>
+                <span class="muted node-card__seen">{{
+                  isoShort(node.last_seen_at)
+                }}</span>
+              </div>
+            </div>
+          </li>
+        }
+      </ul>
+    }
+  </section>
+
+  <section class="panel detail-panel" aria-labelledby="detail-heading">
+    <h2 id="detail-heading" class="panel-title">Target</h2>
+    @if (selectedNode(); as node) {
+      <div class="detail">
+        <dl class="kv">
+          <dt>ID</dt>
+          <dd>{{ node.id }}</dd>
+          <dt>Nodus</dt>
+          <dd class="truncate">{{ node.nodus_id_hex }}</dd>
+          <dt>MAC</dt>
+          <dd>{{ node.mac_addr }}</dd>
+          <dt>Arch</dt>
+          <dd>{{ node.cpu_arch }}</dd>
+          <dt>Delivery</dt>
+          <dd>
+            <span
+              class="badge"
+              [class.badge--push]="node.deliveryMode === 'push'"
+              [class.badge--pull]="node.deliveryMode === 'pull'"
+            >
+              {{ node.deliveryMode }}
+            </span>
+          </dd>
+        </dl>
+
+        <div class="composer">
+          <span class="composer-label">Command</span>
+          <div
+            class="cmd-line"
+            contenteditable="true"
+            spellcheck="false"
+            #cmdLine
+            (keydown)="onComposerKeydown($event, cmdLine)"
+          ></div>
+          <div class="composer-actions">
+            <div
+              class="btn btn--primary"
+              role="button"
+              tabindex="0"
+              (click)="activateEnqueue(cmdLine)"
+              (keydown.enter)="activateEnqueue(cmdLine)"
+              (keydown.space)="$event.preventDefault(); activateEnqueue(cmdLine)"
+            >
+              Enqueue
+            </div>
+            <div
+              class="btn btn--ghost"
+              role="button"
+              tabindex="0"
+              (click)="activateSimulate()"
+              (keydown.enter)="activateSimulate()"
+              (keydown.space)="$event.preventDefault(); activateSimulate()"
+            >
+              Simulate send / poll
+            </div>
+          </div>
+        </div>
+
+        <div class="queue">
+          <h3 class="queue-title">Command queue</h3>
+          @if (commands().length === 0) {
+            <p class="muted">No commands for this node.</p>
+          } @else {
+            <div class="queue-rows">
+              @for (cmd of commands(); track cmd.id) {
+                <div class="queue-row">
+                  <div class="queue-row__main">
+                    <span class="queue-kind">{{ cmd.kind }}</span>
+                    <span class="queue-payload">{{ cmd.payload }}</span>
+                  </div>
+                  <div class="queue-row__meta">
+                    @switch (cmd.status) {
+                      @case ('pending') {
+                        <span class="status status--pending">pending</span>
+                      }
+                      @case ('queued_for_poll') {
+                        <span class="status status--poll">queued poll</span>
+                      }
+                      @case ('sent') {
+                        <span class="status status--sent">sent</span>
+                      }
+                      @case ('failed') {
+                        <span class="status status--failed">failed</span>
+                      }
+                    }
+                    <span class="muted queue-time">{{
+                      isoShort(cmd.createdAt)
+                    }}</span>
+                  </div>
+                </div>
+              }
+            </div>
+          }
+        </div>
+      </div>
+    } @else {
+      <p class="muted">Select a node from the list.</p>
+    }
+  </section>
+</div>

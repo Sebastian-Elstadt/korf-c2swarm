@@ -1,1 +1,53 @@
-/* You can add global styles to this file, and also import other style files */
+:root {
+  --radius: 4px;
+  --bg-base: #0a0c0f;
+  --bg-elevated: #12161c;
+  --bg-surface: #181d26;
+  --border: rgba(120, 200, 220, 0.12);
+  --border-strong: rgba(120, 200, 220, 0.22);
+  --text: #e8eef2;
+  --text-muted: #7a8a94;
+  --accent: #3dd6e0;
+  --accent-dim: rgba(61, 214, 224, 0.15);
+  --accent-glow: rgba(61, 214, 224, 0.35);
+  --danger: #f07178;
+  --warn: #e6c07b;
+  --ok: #7fd88f;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, "Cascadia Code",
+    "Cascadia Mono", monospace;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--text);
+  background: var(--bg-base);
+  background-image: radial-gradient(
+    ellipse 120% 80% at 50% -30%,
+    rgba(61, 214, 224, 0.06),
+    transparent 55%
+  );
+  -webkit-font-smoothing: antialiased;
+}
+
+a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
