@@ -94,15 +94,35 @@ pub fn parse_registration(data: &[u8]) -> Result<RegistrationPayload, ProtocolEr
     })
 }
 
-pub fn parse_heartbeat(data: &[u8]) -> Result<[u8; 32], ProtocolError> {
-    validate_payload(data, MSG_HEARTBEAT, 32)?;
+#[derive(Debug, Clone)]
+pub struct HeartbeatPayload {
+    pub nodus_id: [u8; 32],
+    pub node_local_time_ms: i64,
+    pub sig_bytes: Vec<u8>
+}
 
-    let i = 3usize;
-    
+pub fn parse_heartbeat(data: &[u8]) -> Result<HeartbeatPayload, ProtocolError> {
+    validate_payload(data, MSG_HEARTBEAT, 32 + 8 + 2)?;
+
+    let mut i = 3usize;
+
     let mut nodus_id = [0u8; 32];
     nodus_id.copy_from_slice(&data[i..i + 32]);
+    i += 32;
 
-    Ok(nodus_id)
+    let mut ts_bytes = [0u8; 8];
+    ts_bytes.copy_from_slice(&data[i..i + 8]);
+    let node_local_time_ms = i64::from_be_bytes(ts_bytes);
+    i += 8;
+
+    let sig_len = u16::from_be_bytes([data[i], data[i + 1]]) as usize;
+    i += 2;
+    if data.len() < i + sig_len {
+        return Err(ProtocolError::TooShort);
+    }
+    let sig_bytes = data[i..i + sig_len].to_vec();
+
+    Ok(HeartbeatPayload { nodus_id, node_local_time_ms, sig_bytes })
 }
 
 fn format_mac(bytes: &[u8]) -> String {

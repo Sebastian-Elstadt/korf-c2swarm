@@ -41,9 +41,11 @@ async fn handle_heartbeat(
     println!("nodecom: received heartbeat.");
 
     match protocol::parse_heartbeat(data) {
-        Ok(nodus_id) => match app_ctx.node_repo.get_by_nodus_id(nodus_id).await {
+        Ok(heartbeat) => match app_ctx.node_repo.get_by_nodus_id(heartbeat.nodus_id).await {
             Ok(query_result) => {
                 if let Some(mut node) = query_result {
+                    // todo: check if node.asym_sec_algo = 1, then use ed25519 to verify the signature with node.asym_sec_pubkey
+
                     node.last_seen_at = Utc::now();
                     match app_ctx.node_repo.update(&node).await {
                         Ok(()) => {

@@ -1,0 +1,15 @@
+Nodus:
+1. Send node host time in heartbeat payload, along with signature of payload.
+2. Receive command from c2 to self destruct.
+3. Receive command from c2 to execute an arbitrary command.
+
+Kommander:
+1. Store last used IPv4, port and protocol per node.
+2. Validate heartbeat payload and store node host time.
+3. GUI for sending commands.
+4. Direct dispatch of commands or queue them.
+
+Overall:
+1. Cleanup dependencies.
+2. Setup shared dependencies across kommander and nodus.
+3. Document everything.
