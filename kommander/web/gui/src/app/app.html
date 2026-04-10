@@ -3,6 +3,17 @@
     <span class="brand-mark">KORF</span>
     <span class="brand-sub">kommander</span>
   </div>
+  <div
+    class="health"
+    role="status"
+    [attr.aria-label]="healthLabel()"
+  >
+    <span
+      class="health-dot"
+      [class.health-dot--ok]="healthOk()"
+    ></span>
+    <span class="health-text">/api/health</span>
+  </div>
 </header>
 <main class="main">
   <router-outlet />

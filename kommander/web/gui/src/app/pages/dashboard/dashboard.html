@@ -1,45 +1,55 @@
 <div class="dashboard">
   <section class="panel nodes-panel" aria-labelledby="nodes-heading">
     <h2 id="nodes-heading" class="panel-title">Nodes</h2>
-    @if (nodes().length === 0) {
-      <p class="muted">Loading registry…</p>
-    } @else {
-      <ul class="node-list">
-        @for (node of nodes(); track node.id) {
-          <li>
-            <div
-              class="node-card"
-              [class.node-card--active]="selectedNodeId() === node.id"
-              role="button"
-              tabindex="0"
-              (click)="selectNode(node.id)"
-              (keydown.enter)="selectNode(node.id)"
-              (keydown.space)="$event.preventDefault(); selectNode(node.id)"
-            >
-              <div class="node-card__row">
-                <span
-                  class="presence"
-                  [class.presence--on]="isOnline(node)"
-                  [attr.aria-label]="isOnline(node) ? 'online' : 'offline'"
-                ></span>
-                <span class="node-card__name">{{ displayName(node) }}</span>
-              </div>
-              <div class="node-card__meta">
-                <span
-                  class="badge"
-                  [class.badge--push]="node.deliveryMode === 'push'"
-                  [class.badge--pull]="node.deliveryMode === 'pull'"
+    @switch (nodesState().kind) {
+      @case ('loading') {
+        <p class="muted">Loading registry…</p>
+      }
+      @case ('error') {
+        <p class="muted">Could not load nodes from the server.</p>
+      }
+      @case ('ready') {
+        @if (nodes().length === 0) {
+          <p class="muted">No registered nodes.</p>
+        } @else {
+          <ul class="node-list">
+            @for (node of nodes(); track node.id) {
+              <li>
+                <div
+                  class="node-card"
+                  [class.node-card--active]="selectedNodeId() === node.id"
+                  role="button"
+                  tabindex="0"
+                  (click)="selectNode(node.id)"
+                  (keydown.enter)="selectNode(node.id)"
+                  (keydown.space)="$event.preventDefault(); selectNode(node.id)"
                 >
-                  {{ node.deliveryMode }}
-                </span>
-                <span class="muted node-card__seen">{{
-                  isoShort(node.last_seen_at)
-                }}</span>
-              </div>
-            </div>
-          </li>
+                  <div class="node-card__row">
+                    <span
+                      class="presence"
+                      [class.presence--on]="isOnline(node)"
+                      [attr.aria-label]="isOnline(node) ? 'online' : 'offline'"
+                    ></span>
+                    <span class="node-card__name">{{ displayName(node) }}</span>
+                  </div>
+                  <div class="node-card__meta">
+                    <span
+                      class="badge"
+                      [class.badge--push]="node.deliveryMode === 'push'"
+                      [class.badge--pull]="node.deliveryMode === 'pull'"
+                    >
+                      {{ node.deliveryMode }}
+                    </span>
+                    <span class="muted node-card__seen">{{
+                      isoShort(node.last_seen_at)
+                    }}</span>
+                  </div>
+                </div>
+              </li>
+            }
+          </ul>
         }
-      </ul>
+      }
     }
   </section>
 

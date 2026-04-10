@@ -30,6 +30,8 @@ dependencies = [
  "chrono",
  "data",
  "domain",
+ "dotenvy",
+ "nodecom",
  "thiserror",
  "tokio",
  "tower-http",
@@ -1000,10 +1002,12 @@ dependencies = [
 name = "nodecom"
 version = "0.1.0"
 dependencies = [
+ "chrono",
  "data",
  "domain",
  "thiserror",
  "tokio",
+ "uuid",
 ]
 
 [[package]]

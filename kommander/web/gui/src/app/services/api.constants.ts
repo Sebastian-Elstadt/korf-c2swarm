@@ -1,2 +1,2 @@
-/** Base path for future `HttpClient` calls (same-origin as the SPA). */
+/** Same-origin API prefix (`kommander/web/src/api/mod.rs`). */
 export const API_BASE = '/api';

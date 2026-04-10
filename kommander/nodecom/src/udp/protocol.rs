@@ -17,7 +17,7 @@ pub enum ProtocolError {
 }
 
 #[derive(Debug, Clone)]
-pub struct RegistrationInput {
+pub struct RegistrationPayload {
     pub nodus_id: [u8; 32],
     pub mac_addr: String,
     pub asym_sec_algo: i16,
@@ -29,7 +29,7 @@ pub struct RegistrationInput {
     pub account_name: Option<String>,
 }
 
-pub fn parse_registration(data: &[u8]) -> Result<RegistrationInput, ProtocolError> {
+pub fn parse_registration(data: &[u8]) -> Result<RegistrationPayload, ProtocolError> {
     if data.len() < 3 {
         return Err(ProtocolError::TooShort);
     }
@@ -73,7 +73,7 @@ pub fn parse_registration(data: &[u8]) -> Result<RegistrationInput, ProtocolErro
     i += c;
     let (account_name, _) = read_string_segment(data, i)?;
 
-    Ok(RegistrationInput {
+    Ok(RegistrationPayload {
         nodus_id,
         mac_addr,
         asym_sec_algo,
@@ -85,6 +85,7 @@ pub fn parse_registration(data: &[u8]) -> Result<RegistrationInput, ProtocolErro
         account_name: opt_string(account_name),
     })
 }
+
 
 fn format_mac(bytes: &[u8]) -> String {
     bytes

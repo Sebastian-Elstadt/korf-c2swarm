@@ -6,12 +6,18 @@ import {
   signal
 } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
+import { catchError, map, merge, of } from 'rxjs';
 import type { Node } from '../../models/node.model';
 import { CommandService } from '../../services/command.service';
 import { NodeService } from '../../services/node.service';
 
 /** Online when last_seen_at is within this many milliseconds. */
 const ONLINE_MS = 5 * 60_000;
+
+type NodesState =
+  | { kind: 'loading' }
+  | { kind: 'error' }
+  | { kind: 'ready'; nodes: Node[] };
 
 @Component({
   selector: 'app-dashboard',
@@ -23,7 +29,22 @@ export class Dashboard {
   private readonly nodeService = inject(NodeService);
   private readonly commandService = inject(CommandService);
 
-  readonly nodes = toSignal(this.nodeService.listNodes(), { initialValue: [] });
+  readonly nodesState = toSignal(
+    merge(
+      of<NodesState>({ kind: 'loading' }),
+      this.nodeService.listNodes().pipe(
+        map((nodes): NodesState => ({ kind: 'ready', nodes })),
+        catchError(() => of<NodesState>({ kind: 'error' }))
+      )
+    ),
+    { initialValue: { kind: 'loading' } as NodesState }
+  );
+
+  readonly nodes = computed(() => {
+    const s = this.nodesState();
+    return s.kind === 'ready' ? s.nodes : [];
+  });
+
   readonly selectedNodeId = signal<string | null>(null);
   readonly commands = this.commandService.commandsView(this.selectedNodeId);
   readonly selectedNode = computed(() => {
@@ -33,9 +54,10 @@ export class Dashboard {
 
   constructor() {
     effect(() => {
-      const list = this.nodes();
-      if (list.length > 0 && this.selectedNodeId() === null) {
-        this.selectedNodeId.set(list[0].id);
+      const s = this.nodesState();
+      if (s.kind !== 'ready' || s.nodes.length === 0) return;
+      if (this.selectedNodeId() === null) {
+        this.selectedNodeId.set(s.nodes[0].id);
       }
     });
   }

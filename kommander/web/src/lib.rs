@@ -1,6 +1,6 @@
-use std::{net::SocketAddr, sync::Arc};
 use axum::Router;
 use domain::AppContext;
+use std::{net::SocketAddr, sync::Arc};
 use tower_http::services::{ServeDir, ServeFile};
 
 mod api;

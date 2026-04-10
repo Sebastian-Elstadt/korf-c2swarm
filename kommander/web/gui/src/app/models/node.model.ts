@@ -1,7 +1,5 @@
-/** Mirrors `NodeJson` from kommander `api.rs` plus UI-only fields until the API exposes them. */
-export type NodeDeliveryMode = 'push' | 'pull';
-
-export interface Node {
+/** Matches `NodeListItem` in `kommander/web/src/api/nodes.rs` (JSON body). */
+export interface NodeListItem {
   id: string;
   nodus_id_hex: string;
   mac_addr: string;
@@ -14,6 +12,11 @@ export interface Node {
   account_name: string | null;
   first_seen_at: string;
   last_seen_at: string;
-  /** Server can push immediately vs commands ride the next node poll. */
+}
+
+export type NodeDeliveryMode = 'push' | 'pull';
+
+/** API row plus UI-only fields until the API exposes them. */
+export interface Node extends NodeListItem {
   deliveryMode: NodeDeliveryMode;
 }
