@@ -5,14 +5,14 @@ import {
   inject,
   signal
 } from '@angular/core';
-import { toSignal } from '@angular/core/rxjs-interop';
-import { catchError, map, merge, of } from 'rxjs';
+import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
+import { catchError, interval, map, merge, of } from 'rxjs';
 import type { Node } from '../../models/node.model';
 import { CommandService } from '../../services/command.service';
 import { NodeService } from '../../services/node.service';
 
-/** Online when last_seen_at is within this many milliseconds. */
-const ONLINE_MS = 5 * 60_000;
+/** Heartbeat: online when last_seen_at is at most this old (offline if strictly older). */
+const HEARTBEAT_MAX_AGE_MS = 10 * 60_000;
 
 type NodesState =
   | { kind: 'loading' }
@@ -28,6 +28,9 @@ type NodesState =
 export class Dashboard {
   private readonly nodeService = inject(NodeService);
   private readonly commandService = inject(CommandService);
+
+  /** Advances every minute so "HB: N minutes ago" stays accurate while the view is open. */
+  private readonly now = signal(Date.now());
 
   readonly nodesState = toSignal(
     merge(
@@ -53,6 +56,10 @@ export class Dashboard {
   });
 
   constructor() {
+    interval(60_000)
+      .pipe(takeUntilDestroyed())
+      .subscribe(() => this.now.set(Date.now()));
+
     effect(() => {
       const s = this.nodesState();
       if (s.kind !== 'ready' || s.nodes.length === 0) return;
@@ -75,8 +82,51 @@ export class Dashboard {
   }
 
   isOnline(node: Node): boolean {
+    void this.now();
     const t = new Date(node.last_seen_at).getTime();
-    return Number.isFinite(t) && Date.now() - t < ONLINE_MS;
+    return (
+      Number.isFinite(t) && Date.now() - t <= HEARTBEAT_MAX_AGE_MS
+    );
+  }
+
+  /**
+   * Relative time from ISO timestamp, e.g. "2 minutes ago". Uses `now` tick.
+   */
+  private relativeFromIso(iso: string): string {
+    void this.now();
+    const t = new Date(iso).getTime();
+    if (!Number.isFinite(t)) {
+      return 'unknown';
+    }
+    const diffMs = Date.now() - t;
+    const past = diffMs >= 0;
+    const absSec = Math.round(Math.abs(diffMs) / 1000);
+    if (absSec < 60) {
+      return `${absSec} second${absSec === 1 ? '' : 's'} ${past ? 'ago' : 'from now'}`;
+    }
+    if (absSec < 3600) {
+      const m = Math.floor(absSec / 60);
+      return `${m} minute${m === 1 ? '' : 's'} ${past ? 'ago' : 'from now'}`;
+    }
+    if (absSec < 86400) {
+      const h = Math.floor(absSec / 3600);
+      return `${h} hour${h === 1 ? '' : 's'} ${past ? 'ago' : 'from now'}`;
+    }
+    const d = Math.floor(absSec / 86400);
+    return `${d} day${d === 1 ? '' : 's'} ${past ? 'ago' : 'from now'}`;
+  }
+
+  /**
+   * Human-readable heartbeat from API `last_seen_at`, e.g. "HB: 2 minutes ago".
+   */
+  heartbeatLabel(iso: string): string {
+    const r = this.relativeFromIso(iso);
+    return r === 'unknown' ? 'HB: unknown' : `HB: ${r}`;
+  }
+
+  /** Relative label for `first_seen_at` in the detail panel (same rules as heartbeat text). */
+  firstSeenLabel(iso: string): string {
+    return this.relativeFromIso(iso);
   }
 
   onComposerKeydown(ev: KeyboardEvent, el: HTMLElement): void {

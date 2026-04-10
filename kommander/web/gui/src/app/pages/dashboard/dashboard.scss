@@ -98,8 +98,22 @@
   flex-wrap: wrap;
 }
 
-.node-card__seen {
+.node-card__hb {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+.node-card__hb--stale {
+  color: var(--danger);
+}
+
+.hb-detail--stale {
+  color: var(--danger);
+}
+
+.hb-detail-raw {
   font-size: 0.75rem;
+  word-break: break-all;
 }
 
 .presence {

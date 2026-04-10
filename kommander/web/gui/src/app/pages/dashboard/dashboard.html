@@ -28,7 +28,11 @@
                     <span
                       class="presence"
                       [class.presence--on]="isOnline(node)"
-                      [attr.aria-label]="isOnline(node) ? 'online' : 'offline'"
+                      [attr.aria-label]="
+                        (isOnline(node) ? 'online' : 'offline') +
+                        ', ' +
+                        heartbeatLabel(node.last_seen_at)
+                      "
                     ></span>
                     <span class="node-card__name">{{ displayName(node) }}</span>
                   </div>
@@ -40,9 +44,12 @@
                     >
                       {{ node.deliveryMode }}
                     </span>
-                    <span class="muted node-card__seen">{{
-                      isoShort(node.last_seen_at)
-                    }}</span>
+                    <span
+                      class="node-card__hb"
+                      [class.node-card__hb--stale]="!isOnline(node)"
+                      [attr.title]="node.last_seen_at"
+                      >{{ heartbeatLabel(node.last_seen_at) }}</span
+                    >
                   </div>
                 </div>
               </li>
@@ -66,6 +73,22 @@
           <dd>{{ node.mac_addr }}</dd>
           <dt>Arch</dt>
           <dd>{{ node.cpu_arch }}</dd>
+          <dt>First seen</dt>
+          <dd>
+            <span [attr.title]="node.first_seen_at">{{
+              firstSeenLabel(node.first_seen_at)
+            }}</span>
+            <span class="muted hb-detail-raw"> ({{ node.first_seen_at }})</span>
+          </dd>
+          <dt>Heartbeat</dt>
+          <dd>
+            <span
+              [class.hb-detail--stale]="!isOnline(node)"
+              [attr.title]="node.last_seen_at"
+              >{{ heartbeatLabel(node.last_seen_at) }}</span
+            >
+            <span class="muted hb-detail-raw"> ({{ node.last_seen_at }})</span>
+          </dd>
           <dt>Delivery</dt>
           <dd>
             <span
