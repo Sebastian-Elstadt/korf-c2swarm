@@ -14,6 +14,8 @@ services:
       - korf_db:/var/lib/postgresql/data
     networks:
       - korf_net
+    ports:
+      - 5432:5432
 
   kommander:
     build:

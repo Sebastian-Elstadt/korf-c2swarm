@@ -7,6 +7,10 @@ pub async fn create_database_pool(url: &str) -> PgPool {
     PgPoolOptions::new().connect(url).await.unwrap()
 }
 
+pub async fn run_migrations(pool: &PgPool) -> Result<(), sqlx::migrate::MigrateError> {
+    sqlx::migrate!("./migrations").run(pool).await
+}
+
 // pub async fn upsert_registration(
 //     pool: &PgPool,
 //     input: &RegistrationInput,

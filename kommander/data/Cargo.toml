@@ -9,6 +9,7 @@ sqlx = { version = "0.8.6", features = [
     "tls-native-tls",
     "postgres",
     "chrono",
+    "uuid"
 ] }
 async-trait = "0.1.89"
 domain = { path = "../domain" }

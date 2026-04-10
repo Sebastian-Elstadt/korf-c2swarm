@@ -15,6 +15,9 @@ async fn main() {
 async fn init_ctx() -> Result<AppContext, String> {
     let database_url = std::env::var("DATABASE_URL").map_err(|_| "DATABASE_URL must be set")?;
     let db_pool = data::create_database_pool(&database_url).await;
+    data::run_migrations(&db_pool)
+        .await
+        .map_err(|err| format!("Database migration failed. {err}"))?;
 
     Ok(AppContext {
         health_port: Box::new(data::ports::PgHealthPort::new(db_pool.clone())),
