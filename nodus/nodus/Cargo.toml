@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-nodus_asym_sec = { path = "../nodus_asym_sec" }
+asymsec = { path = "../asymsec" }
 thiserror = "2.0.18"
 tokio = { version = "1.49.0", features = ["full"] }
 base85 = "2.0.0"

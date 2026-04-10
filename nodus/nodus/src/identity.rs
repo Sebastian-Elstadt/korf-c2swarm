@@ -1,4 +1,4 @@
-use nodus_asym_sec::AsymSecHandler;
+use asymsec::AsymSecHandler;
 use sha2::{Digest, Sha256};
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -18,6 +18,7 @@ pub struct Identity {
 }
 
 pub fn init() -> Identity {
+    println!("+--- scraping id ---+");
     let cpu_arch = whoami::cpu_arch().to_string();
     let hostname = whoami::hostname().ok();
     let username = whoami::username().ok();
@@ -53,6 +54,7 @@ pub fn init() -> Identity {
     hash.update(b"\0korf-nodus");
     let nodus_id = base85::encode(&hash.finalize());
 
+    println!();
     Identity {
         nodus_id,
         cpu_arch,
@@ -61,6 +63,6 @@ pub fn init() -> Identity {
         account_name,
         device_name,
         mac_addr,
-        asym_sec: nodus_asym_sec::get_implementation(),
+        asym_sec: asymsec::get_implementation(),
     }
 }
