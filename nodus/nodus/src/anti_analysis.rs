@@ -1,7 +1,6 @@
-use std::arch::x86_64::_rdtsc;
 use std::net::TcpStream;
 use std::time::Duration;
-use std::{fs, process::exit, time::Instant};
+use std::{fs, process::exit};
 
 /**
  * Simple lib of basic functions to detect a sandbox or virtual environment.
@@ -9,39 +8,25 @@ use std::{fs, process::exit, time::Instant};
  */
 
 pub fn check_environment() {
-    if test_cpu_timing()
-        || test_cpu_core_count()
-        || detect_vm_hardware()
-        || check_vm_mac()
-        || check_processes()
-        || is_debugged()
-        || is_vm()
-        || !has_internet_conn()
-    {
+    let cpu_core_count = test_cpu_core_count();
+    let vm_hardware = detect_vm_hardware();
+    let vm_mac = check_vm_mac();
+    let processes = check_processes();
+    let debugged = is_debugged();
+    let vm = is_vm();
+    let internet_missing = !has_internet_conn();
+
+    eprintln!(
+        "anti_analysis: cpu_core_count={cpu_core_count} vm_hardware={vm_hardware} vm_mac={vm_mac} processes={processes} debugged={debugged} vm={vm} internet_missing={internet_missing}"
+    );
+
+    if cpu_core_count || vm_hardware || vm_mac || processes || debugged || vm || internet_missing {
         exit(0);
     }
 }
 
 fn has_internet_conn() -> bool {
     TcpStream::connect_timeout(&"8.8.8.8:53".parse().unwrap(), Duration::from_secs(3)).is_ok()
-}
-
-fn test_cpu_timing() -> bool {
-    unsafe {
-        let start = _rdtsc();
-        std::ptr::read_volatile(&0u64); // something minimal
-        let end = _rdtsc();
-
-        let cycles = end - start;
-        if cycles > 1000 {
-            return true;
-        }
-    }
-
-    let start = Instant::now();
-    std::thread::sleep(std::time::Duration::from_millis(100));
-    let elapsed = start.elapsed();
-    elapsed.as_millis() > 150
 }
 
 fn test_cpu_core_count() -> bool {
@@ -193,7 +178,6 @@ fn check_processes() -> bool {
         "qemu",
         "vboxservice",
         "vmtoolsd",
-        "ida",
         "x64dbg",
         "ollydbg",
     ];
@@ -207,7 +191,6 @@ fn check_processes() -> bool {
         "x64dbg",
         "x32dbg",
         "ollydbg",
-        "ida",
         "windbg",
         "vboxservice",
         "vmtoolsd",
