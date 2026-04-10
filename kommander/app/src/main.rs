@@ -17,6 +17,7 @@ async fn init_ctx() -> Result<AppContext, String> {
     let db_pool = data::create_database_pool(&database_url).await;
 
     Ok(AppContext {
+        health_port: Box::new(data::ports::PgHealthPort::new(db_pool.clone())),
         node_repo: Box::new(data::repositories::PgNodeRepository::new(db_pool.clone())),
     })
 }

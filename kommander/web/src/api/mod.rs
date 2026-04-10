@@ -1,44 +1,14 @@
 use std::sync::Arc;
 use axum::Router;
-use axum::extract::State;
-use axum::http::StatusCode;
-use axum::response::{IntoResponse, Json};
-use axum::routing::get;
 use domain::AppContext;
-use serde::Serialize;
+
+mod app;
 
 pub fn router() -> Router<Arc<AppContext>> {
     Router::new()
-        // .route("/api/health", get(health))
+        .route("/api/health", axum::routing::get(app::health))
         // .route("/api/nodes", get(list_nodes))
 }
-
-// #[derive(Serialize)]
-// struct HealthResponse {
-//     status: &'static str,
-//     database: &'static str,
-// }
-
-// async fn health(State(pool): State<PgPool>) -> impl IntoResponse {
-//     match data::ping_db(&pool).await {
-//         Ok(()) => (
-//             StatusCode::OK,
-//             Json(HealthResponse {
-//                 status: "ok",
-//                 database: "ok",
-//             }),
-//         )
-//             .into_response(),
-//         Err(_) => (
-//             StatusCode::SERVICE_UNAVAILABLE,
-//             Json(HealthResponse {
-//                 status: "degraded",
-//                 database: "error",
-//             }),
-//         )
-//             .into_response(),
-//     }
-// }
 
 // #[derive(Serialize)]
 // struct NodeJson {

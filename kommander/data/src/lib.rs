@@ -1,6 +1,7 @@
 use sqlx::{PgPool, postgres::PgPoolOptions};
 
 pub mod repositories;
+pub mod ports;
 
 pub async fn create_database_pool(url: &str) -> PgPool {
     PgPoolOptions::new().connect(url).await.unwrap()

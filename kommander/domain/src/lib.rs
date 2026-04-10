@@ -10,8 +10,10 @@ pub enum RepositoryError {
 }
 
 pub mod repositories;
+pub mod ports;
 pub mod node;
 
 pub struct AppContext {
-    pub node_repo: Box<dyn repositories::NodeRespository>
+    pub health_port: Box<dyn ports::HealthPort>,
+    pub node_repo: Box<dyn repositories::NodeRespository>,
 }
