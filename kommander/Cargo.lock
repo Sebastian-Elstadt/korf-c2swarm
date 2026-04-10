@@ -2175,6 +2175,7 @@ dependencies = [
  "axum",
  "data",
  "domain",
+ "hex",
  "serde",
  "tokio",
  "tower-http",
