@@ -25,11 +25,14 @@ pub struct NodeListItem {
 pub async fn list_nodes(
     State(app_ctx): State<Arc<AppContext>>,
 ) -> Result<Json<Vec<NodeListItem>>, ApiError> {
-    let nodes = app_ctx
+    let mut nodes = app_ctx
         .node_repo
         .get_all()
         .await
         .map_err(|err| ApiError::internal(format!("failed to load nodes list: {err}")))?;
+
+    nodes.sort_by_key(|n| n.last_seen_at);
+    nodes.reverse();
 
     let out: Vec<NodeListItem> = nodes
         .into_iter()

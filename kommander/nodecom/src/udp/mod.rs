@@ -19,6 +19,9 @@ pub async fn run(bind_addr: SocketAddr, app_ctx: Arc<AppContext>) -> Result<(), 
         }
 
         match data[2] {
+            protocol::MSG_HEARTBEAT => {
+                handle_heartbeat(app_ctx.clone(), data).await;
+            }
             protocol::MSG_REGISTER => {
                 handle_register(app_ctx.clone(), data, &sock, &addr).await;
             }
@@ -27,6 +30,40 @@ pub async fn run(bind_addr: SocketAddr, app_ctx: Arc<AppContext>) -> Result<(), 
                     eprintln!("udp send HUH failed for unknown message");
                 }
             }
+        }
+    }
+}
+
+async fn handle_heartbeat(
+    app_ctx: Arc<AppContext>,
+    data: &[u8]
+) {
+    println!("nodecom: received heartbeat.");
+
+    match protocol::parse_heartbeat(data) {
+        Ok(nodus_id) => match app_ctx.node_repo.get_by_nodus_id(nodus_id).await {
+            Ok(query_result) => {
+                if let Some(mut node) = query_result {
+                    node.last_seen_at = Utc::now();
+                    match app_ctx.node_repo.update(&node).await {
+                        Ok(()) => {
+                            println!("nodecom: node heartbeat update completed.");
+                            return;
+                        }
+                        Err(err) => {
+                            eprintln!("nodecom: heartbeat node update error: {err}");
+                        }
+                    }
+                }
+
+                eprintln!("nodecom: heartbeat node query found nothing.");
+            }
+            Err(err) => {
+                eprintln!("nodecom: heartbeat node query error: {err}");
+            }
+        },
+        Err(err) => {
+            eprintln!("nodecom: heartbeat payload parse failed: {err}");
         }
     }
 }

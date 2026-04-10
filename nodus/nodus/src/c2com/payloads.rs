@@ -1,7 +1,13 @@
 use crate::identity::Identity;
 
+const MAGIC_1: u8 = 77;
+const MAGIC_2: u8 = 33;
+
+const HEARTBEAT_ACTION_CODE: u8 = 0;
+const REGISTRATION_ACTION_CODE: u8 = 1;
+
 pub fn registration(identity: &Identity) -> Result<Vec<u8>, String> {
-    let mut buf = new_payload(1);
+    let mut buf = new_payload(REGISTRATION_ACTION_CODE);
 
     // 1. nodus id
     buf.extend_from_slice(
@@ -46,8 +52,19 @@ pub fn registration(identity: &Identity) -> Result<Vec<u8>, String> {
     Ok(buf)
 }
 
+pub fn heartbeat(identity: &Identity) -> Result<Vec<u8>, String> {
+    let mut buf = new_payload(HEARTBEAT_ACTION_CODE);
+
+    buf.extend_from_slice(
+        &base85::decode(&identity.nodus_id)
+            .map_err(|err| format!("Nodus id decode failure. {err}"))?,
+    );
+
+    Ok(buf)
+}
+
 fn new_payload(action: u8) -> Vec<u8> {
-    vec![77, 33, action]
+    vec![MAGIC_1, MAGIC_2, action]
 }
 
 fn append_bytes_with_len(buf: &mut Vec<u8>, bytes: &[u8]) {

