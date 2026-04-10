@@ -14,14 +14,14 @@ impl PgNodeRepository {
 #[async_trait]
 impl NodeRespository for PgNodeRepository {
     async fn get_all(&self) -> Result<Vec<Node>, RepositoryError> {
-        sqlx::query_as!(domain::node::Node, "SELECT * FROM nodes")
+        sqlx::query_as("SELECT * FROM nodes")
             .fetch_all(&self.pool)
             .await
             .map_err(|err| RepositoryError::DbQueryFailure(err.to_string()))
     }
 
     async fn add(&self, node: &mut Node) -> Result<(), RepositoryError> {
-        let uuid = sqlx::query_scalar!(
+        let uuid = sqlx::query_scalar(
             r#"
             INSERT INTO nodes (
                 nodus_id, 
@@ -41,16 +41,16 @@ impl NodeRespository for PgNodeRepository {
                 $9, NOW(), NOW()
             ) RETURNING id;
             "#,
-            node.nodus_id,
-            node.mac_addr,
-            node.asym_sec_algo,
-            node.asym_sec_pubkey,
-            node.cpu_arch,
-            node.hostname,
-            node.username,
-            node.device_name,
-            node.account_name
         )
+        .bind(&node.nodus_id)
+        .bind(&node.mac_addr)
+        .bind(&node.asym_sec_algo)
+        .bind(&node.asym_sec_pubkey)
+        .bind(&node.cpu_arch)
+        .bind(&node.hostname)
+        .bind(&node.username)
+        .bind(&node.device_name)
+        .bind(&node.account_name)
         .fetch_one(&self.pool)
         .await
         .map_err(|err| RepositoryError::DbQueryFailure(err.to_string()))?;
@@ -61,7 +61,7 @@ impl NodeRespository for PgNodeRepository {
     }
 
     async fn update(&self, node: &Node) -> Result<(), RepositoryError> {
-        sqlx::query_scalar!(
+        sqlx::query(
             r#"
             UPDATE nodes
             SET 
@@ -78,19 +78,19 @@ impl NodeRespository for PgNodeRepository {
                 last_seen_at = $12
             WHERE id = $1
             "#,
-            node.id,
-            node.nodus_id,
-            node.mac_addr,
-            node.asym_sec_algo,
-            node.asym_sec_pubkey,
-            node.cpu_arch,
-            node.hostname,
-            node.username,
-            node.device_name,
-            node.account_name,
-            node.first_seen_at,
-            node.last_seen_at
         )
+        .bind(&node.id)
+        .bind(&node.nodus_id)
+        .bind(&node.mac_addr)
+        .bind(&node.asym_sec_algo)
+        .bind(&node.asym_sec_pubkey)
+        .bind(&node.cpu_arch)
+        .bind(&node.hostname)
+        .bind(&node.username)
+        .bind(&node.device_name)
+        .bind(&node.account_name)
+        .bind(&node.first_seen_at)
+        .bind(&node.last_seen_at)
         .execute(&self.pool)
         .await
         .map_err(|err| RepositoryError::DbQueryFailure(err.to_string()))?;
