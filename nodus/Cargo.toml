@@ -1,0 +1,3 @@
+[workspace]
+members = ["nodus", "nodus_asym_sec"]
+resolver = "3"
