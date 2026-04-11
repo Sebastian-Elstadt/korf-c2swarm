@@ -12,12 +12,14 @@ use uuid::Uuid;
 pub enum NodeLogEventType {
     Unknown = 0,
     Heartbeat = 1,
+    Registration = 2,
 }
 
 impl From<i16> for NodeLogEventType {
     fn from(value: i16) -> Self {
         match value {
             1 => NodeLogEventType::Heartbeat,
+            2 => NodeLogEventType::Registration,
             _ => NodeLogEventType::Unknown,
         }
     }
@@ -69,6 +71,19 @@ pub struct NodeLogEntry {
 }
 
 impl NodeLogEntry {
+    pub fn new(node_id: Uuid, event_type: NodeLogEventType) -> Self {
+        Self {
+            id: Uuid::nil(),
+            node_id,
+            created_at: Utc::now(),
+            event_type,
+            text_content: None,
+            ipv4_addr: None,
+            network_port: None,
+            network_protocol: None
+        }
+    }
+
     pub fn from_pg_row(row: PgRow) -> Result<Self, sqlx::Error> {
         let event_type: i16 = row.try_get("event_type")?;
         let ipv4_addr: Option<String> = row.try_get("ipv4_addr")?;

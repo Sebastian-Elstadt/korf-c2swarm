@@ -11,3 +11,4 @@ serde = { version = "1.0.228", features = ["derive"] }
 hex = "0.4"
 domain = { path = "../domain" }
 data = { path = "../data" }
+uuid = { version = "1", features = ["serde", "v4"] }
