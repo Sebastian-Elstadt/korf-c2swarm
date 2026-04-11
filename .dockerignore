@@ -1,0 +1,10 @@
+**/target
+.git
+.cursor
+**/*.md
+agent-transcripts
+**/dist
+**/.angular
+**/.vscode
+**/node_modules
+.env

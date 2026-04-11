@@ -97,8 +97,9 @@ pub fn parse_registration(data: &[u8]) -> Result<RegistrationPayload, ProtocolEr
 #[derive(Debug, Clone)]
 pub struct HeartbeatPayload {
     pub nodus_id: [u8; 32],
+    #[allow(dead_code)]
     pub node_local_time_ms: i64,
-    pub sig_bytes: Vec<u8>
+    pub sig_bytes: Vec<u8>,
 }
 
 pub fn parse_heartbeat(data: &[u8]) -> Result<HeartbeatPayload, ProtocolError> {

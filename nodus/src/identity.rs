@@ -1,4 +1,5 @@
-use asymsec::AsymSecHandler;
+use korf_ed25519::SigningKey;
+use rand::rngs::OsRng;
 use sha2::{Digest, Sha256};
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -14,7 +15,7 @@ pub struct Identity {
     pub account_name: Option<String>,
     pub device_name: Option<String>,
     pub mac_addr: Option<String>,
-    pub asym_sec: Box<dyn AsymSecHandler>,
+    pub signing_key: SigningKey,
 }
 
 pub fn init() -> Identity {
@@ -55,6 +56,9 @@ pub fn init() -> Identity {
     let nodus_id = base85::encode(&hash.finalize());
 
     println!();
+    let mut csprng = OsRng;
+    let signing_key = SigningKey::generate(&mut csprng);
+
     Identity {
         nodus_id,
         cpu_arch,
@@ -63,6 +67,6 @@ pub fn init() -> Identity {
         account_name,
         device_name,
         mac_addr,
-        asym_sec: asymsec::get_implementation(),
+        signing_key,
     }
 }

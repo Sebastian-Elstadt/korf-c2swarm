@@ -1,10 +1,17 @@
 use chrono::Utc;
 use domain::{AppContext, node};
+use korf_ed25519::{PUBLIC_KEY_LENGTH, SIGNATURE_LENGTH, verify_signature};
 use std::{net::SocketAddr, sync::Arc};
 use tokio::net::UdpSocket;
 use uuid::Uuid;
 
 mod protocol;
+
+/// Algorithm `1` in registration = Ed25519 (`nodus` / `korf-ed25519`).
+const ASYM_SEC_ALGO_ED25519: i16 = 1;
+
+/// Bytes signed for heartbeat: magic(3) + nodus_id(32) + local_ts_ms(8).
+const HEARTBEAT_SIGNED_LEN: usize = 3 + 32 + 8;
 
 pub async fn run(bind_addr: SocketAddr, app_ctx: Arc<AppContext>) -> Result<(), std::io::Error> {
     let sock = UdpSocket::bind(bind_addr).await?;
@@ -44,7 +51,45 @@ async fn handle_heartbeat(
         Ok(heartbeat) => match app_ctx.node_repo.get_by_nodus_id(heartbeat.nodus_id).await {
             Ok(query_result) => {
                 if let Some(mut node) = query_result {
-                    // todo: check if node.asym_sec_algo = 1, then use ed25519 to verify the signature with node.asym_sec_pubkey
+                    if node.asym_sec_algo != ASYM_SEC_ALGO_ED25519 {
+                        eprintln!(
+                            "nodecom: heartbeat rejected (unsupported asym_sec_algo={})",
+                            node.asym_sec_algo
+                        );
+                        return;
+                    }
+                    if node.asym_sec_pubkey.len() != PUBLIC_KEY_LENGTH {
+                        eprintln!("nodecom: heartbeat rejected (bad pubkey length)");
+                        return;
+                    }
+                    if heartbeat.sig_bytes.len() != SIGNATURE_LENGTH {
+                        eprintln!("nodecom: heartbeat rejected (bad signature length)");
+                        return;
+                    }
+                    let pk: &[u8; PUBLIC_KEY_LENGTH] = match node.asym_sec_pubkey.as_slice().try_into()
+                    {
+                        Ok(v) => v,
+                        Err(_) => {
+                            eprintln!("nodecom: heartbeat rejected (pubkey slice)");
+                            return;
+                        }
+                    };
+                    let sig: &[u8; SIGNATURE_LENGTH] = match heartbeat.sig_bytes.as_slice().try_into()
+                    {
+                        Ok(v) => v,
+                        Err(_) => {
+                            eprintln!("nodecom: heartbeat rejected (signature slice)");
+                            return;
+                        }
+                    };
+                    if data.len() < HEARTBEAT_SIGNED_LEN + 2 + SIGNATURE_LENGTH {
+                        eprintln!("nodecom: heartbeat rejected (packet too short for verify)");
+                        return;
+                    }
+                    if !verify_signature(pk, &data[0..HEARTBEAT_SIGNED_LEN], sig) {
+                        eprintln!("nodecom: heartbeat rejected (bad Ed25519 signature)");
+                        return;
+                    }
 
                     node.last_seen_at = Utc::now();
                     match app_ctx.node_repo.update(&node).await {

@@ -5,7 +5,7 @@ use tokio::task::JoinHandle;
 
 #[tokio::main]
 async fn main() {
-    dotenvy::dotenv().unwrap();
+    dotenvy::dotenv().ok();
 
     println!("kommander starting...");
     let app_ctx = Arc::new(init_ctx().await.unwrap());

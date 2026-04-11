@@ -1,7 +1,8 @@
 [package]
-name = "asymsec"
+name = "korf-ed25519"
 version = "0.1.0"
 edition = "2024"
+description = "Ed25519 signing and verification (ed25519-dalek), shared by kommander and nodus"
 
 [dependencies]
 ed25519-dalek = { version = "2.2", features = ["rand_core"] }

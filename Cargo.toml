@@ -1,0 +1,11 @@
+[workspace]
+members = [
+  "ed25519",
+  "kommander/domain",
+  "kommander/data",
+  "kommander/app",
+  "kommander/web",
+  "kommander/nodecom",
+  "nodus",
+]
+resolver = "3"

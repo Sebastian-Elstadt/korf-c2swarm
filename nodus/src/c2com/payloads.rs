@@ -1,4 +1,5 @@
 use chrono::Local;
+use korf_ed25519::Signer;
 
 use crate::identity::Identity;
 
@@ -34,7 +35,7 @@ pub fn registration(identity: &Identity) -> Result<Vec<u8>, String> {
 
     // 3. public key
     buf.extend_from_slice(&[1]); // algo type
-    append_bytes_with_len(&mut buf, &identity.asym_sec.get_public_key());
+    append_bytes_with_len(&mut buf, &identity.signing_key.verifying_key().to_bytes());
 
     // 4. cpu arch
     append_str_with_len(&mut buf, &identity.cpu_arch);
@@ -68,8 +69,8 @@ pub fn heartbeat(identity: &Identity) -> Result<Vec<u8>, String> {
     buf.extend_from_slice(&local_ts_ms.to_be_bytes());
 
     // 3. signature of payload - 2 bytes (len) + sig bytes
-    let sig_bytes = identity.asym_sec.sign(&buf);
-    append_bytes_with_len(&mut buf, &sig_bytes);
+    let sig = identity.signing_key.sign(&buf);
+    append_bytes_with_len(&mut buf, &sig.to_bytes());
 
     Ok(buf)
 }

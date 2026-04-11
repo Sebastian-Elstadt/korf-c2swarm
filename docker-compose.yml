@@ -19,8 +19,8 @@ services:
 
   kommander:
     build:
-      context: kommander
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: kommander/Dockerfile
     environment:
       DATABASE_URL: postgres://${POSTGRES_USER:-korf}:${POSTGRES_PASSWORD:-korf}@db:5432/${POSTGRES_DB:-korf}?sslmode=disable
       UDP_BIND: ${UDP_BIND:-0.0.0.0:8888}

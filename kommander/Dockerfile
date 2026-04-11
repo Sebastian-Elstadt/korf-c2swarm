@@ -2,10 +2,11 @@
 FROM node:24-alpine AS node-builder
 WORKDIR /app
 
-COPY web/gui/package*.json ./
+COPY kommander/web/gui/package*.json ./
 RUN npm ci
 
-COPY web/gui/ .
+COPY kommander/web/gui/ ./
+
 RUN npm run build
 
 # -- Build Server
@@ -13,11 +14,13 @@ FROM rust:1.88-bookworm AS rust-builder
 WORKDIR /app
 
 COPY Cargo.toml Cargo.lock ./
-COPY domain/ ./domain/
-COPY data/ ./data/
-COPY app/ ./app/
-COPY web/ ./web/
-COPY nodecom/ ./nodecom/
+COPY ed25519/ ./ed25519/
+COPY kommander/domain/ ./kommander/domain/
+COPY kommander/data/ ./kommander/data/
+COPY kommander/app/ ./kommander/app/
+COPY kommander/web/ ./kommander/web/
+COPY kommander/nodecom/ ./kommander/nodecom/
+COPY nodus/ ./nodus/
 
 RUN cargo build --release -p app
 
