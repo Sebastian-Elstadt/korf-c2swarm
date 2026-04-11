@@ -183,6 +183,61 @@
             </div>
           }
         </div>
+
+        <div class="logs-section">
+          <div class="logs-section__head">
+            <h3 class="queue-title">Node logs</h3>
+            <div
+              class="btn btn--primary btn--compact"
+              role="button"
+              tabindex="0"
+              (click)="activateLoadLogs()"
+              (keydown.enter)="activateLoadLogs()"
+              (keydown.space)="$event.preventDefault(); activateLoadLogs()"
+            >
+              Refresh
+            </div>
+          </div>
+          @switch (logsState()) {
+            @case ('idle') {
+              <p class="muted logs-hint">
+                Fetch log entries from the server for this node.
+              </p>
+            }
+            @case ('loading') {
+              <p class="muted">Loading logs…</p>
+            }
+            @case ('error') {
+              <p class="muted logs-error">Could not load logs.</p>
+            }
+            @case ('ready') {
+              @if (logsEntries().length === 0) {
+                <p class="muted">No log entries yet.</p>
+              } @else {
+                <div class="logs-view">
+                  @for (log of logsEntries(); track log.id) {
+                    <div class="log-row">
+                      <div class="log-row__head">
+                        <time
+                          class="log-time"
+                          [attr.datetime]="log.created_at"
+                          >{{ isoShort(log.created_at) }}</time
+                        >
+                        <span class="log-ev">evt {{ log.event_type }}</span>
+                      </div>
+                      @if (log.text_content) {
+                        <div class="log-text">{{ log.text_content }}</div>
+                      }
+                      @if (logNetworkMeta(log); as net) {
+                        <div class="log-net">{{ net }}</div>
+                      }
+                    </div>
+                  }
+                </div>
+              }
+            }
+          }
+        </div>
       </div>
     } @else {
       <p class="muted">Select a node from the list.</p>

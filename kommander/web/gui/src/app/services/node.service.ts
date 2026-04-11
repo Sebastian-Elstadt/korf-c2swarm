@@ -1,6 +1,7 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable, map } from 'rxjs';
+import type { NodeLogEntry } from '../models/node-log.model';
 import type { Node, NodeListItem } from '../models/node.model';
 import { API_BASE } from './api.constants';
 
@@ -19,5 +20,11 @@ export class NodeService {
     return this.http
       .get<NodeListItem[]>(`${API_BASE}/nodes`)
       .pipe(map((items) => items.map(toNode)));
+  }
+
+  getNodeLogs(nodeId: string): Observable<NodeLogEntry[]> {
+    return this.http.get<NodeLogEntry[]>(
+      `${API_BASE}/nodes/${encodeURIComponent(nodeId)}/logs`
+    );
   }
 }

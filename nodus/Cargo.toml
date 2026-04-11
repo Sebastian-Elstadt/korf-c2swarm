@@ -17,3 +17,4 @@ libc = "0.2.182" # for anti analysis checking
 mac_address = "1.1.8"
 whoami = "2.1.1"
 chrono = { version = "0.4", features = ["serde"] }
+tokio-util = { version = "0.7.18", features = ["rt"] }

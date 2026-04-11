@@ -7,6 +7,7 @@ import {
 } from '@angular/core';
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { catchError, interval, map, merge, of } from 'rxjs';
+import type { NodeLogEntry } from '../../models/node-log.model';
 import type { Node } from '../../models/node.model';
 import { CommandService } from '../../services/command.service';
 import { NodeService } from '../../services/node.service';
@@ -18,6 +19,8 @@ type NodesState =
   | { kind: 'loading' }
   | { kind: 'error' }
   | { kind: 'ready'; nodes: Node[] };
+
+type LogsLoadState = 'idle' | 'loading' | 'error' | 'ready';
 
 @Component({
   selector: 'app-dashboard',
@@ -49,6 +52,8 @@ export class Dashboard {
   });
 
   readonly selectedNodeId = signal<string | null>(null);
+  readonly logsState = signal<LogsLoadState>('idle');
+  readonly logsEntries = signal<NodeLogEntry[]>([]);
   readonly commands = this.commandService.commandsView(this.selectedNodeId);
   readonly selectedNode = computed(() => {
     const id = this.selectedNodeId();
@@ -67,6 +72,47 @@ export class Dashboard {
         this.selectedNodeId.set(s.nodes[0].id);
       }
     });
+
+    effect(() => {
+      this.selectedNodeId();
+      this.logsEntries.set([]);
+      this.logsState.set('idle');
+    });
+  }
+
+  loadLogs(): void {
+    const id = this.selectedNodeId();
+    if (!id) return;
+    this.logsState.set('loading');
+    this.nodeService.getNodeLogs(id).subscribe({
+      next: (entries) => {
+        if (this.selectedNodeId() !== id) return;
+        this.logsEntries.set(entries);
+        this.logsState.set('ready');
+      },
+      error: () => {
+        if (this.selectedNodeId() !== id) return;
+        this.logsState.set('error');
+      }
+    });
+  }
+
+  activateLoadLogs(): void {
+    this.loadLogs();
+  }
+
+  logNetworkMeta(entry: NodeLogEntry): string | null {
+    const parts: string[] = [];
+    if (entry.ipv4_addr) {
+      parts.push(entry.ipv4_addr);
+    }
+    if (entry.network_port != null) {
+      parts.push(String(entry.network_port));
+    }
+    if (entry.network_protocol != null) {
+      parts.push(`proto ${entry.network_protocol}`);
+    }
+    return parts.length > 0 ? parts.join(' · ') : null;
   }
 
   selectNode(id: string): void {
