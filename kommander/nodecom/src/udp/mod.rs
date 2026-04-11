@@ -37,10 +37,7 @@ pub async fn run(bind_addr: SocketAddr, app_ctx: Arc<AppContext>) -> Result<(), 
     }
 }
 
-async fn handle_heartbeat(
-    app_ctx: Arc<AppContext>,
-    data: &[u8]
-) {
+async fn handle_heartbeat(app_ctx: Arc<AppContext>, data: &[u8]) {
     println!("nodecom: received heartbeat.");
 
     match protocol::parse_heartbeat(data) {
@@ -65,23 +62,23 @@ async fn handle_heartbeat(
                         return;
                     }
 
-                    let pk: &[u8; korf_ed25519::PUBLIC_KEY_LENGTH] = match node.asym_sec_pubkey.as_slice().try_into()
-                    {
-                        Ok(v) => v,
-                        Err(_) => {
-                            eprintln!("nodecom: heartbeat rejected (pubkey slice)");
-                            return;
-                        }
-                    };
+                    let pk: &[u8; korf_ed25519::PUBLIC_KEY_LENGTH] =
+                        match node.asym_sec_pubkey.as_slice().try_into() {
+                            Ok(v) => v,
+                            Err(_) => {
+                                eprintln!("nodecom: heartbeat rejected (pubkey slice)");
+                                return;
+                            }
+                        };
 
-                    let sig: &[u8; korf_ed25519::SIGNATURE_LENGTH] = match heartbeat.sig_bytes.as_slice().try_into()
-                    {
-                        Ok(v) => v,
-                        Err(_) => {
-                            eprintln!("nodecom: heartbeat rejected (signature slice)");
-                            return;
-                        }
-                    };
+                    let sig: &[u8; korf_ed25519::SIGNATURE_LENGTH] =
+                        match heartbeat.sig_bytes.as_slice().try_into() {
+                            Ok(v) => v,
+                            Err(_) => {
+                                eprintln!("nodecom: heartbeat rejected (signature slice)");
+                                return;
+                            }
+                        };
 
                     if data.len() < HEARTBEAT_SIGNED_LEN + 2 + korf_ed25519::SIGNATURE_LENGTH {
                         eprintln!("nodecom: heartbeat rejected (packet too short for verify)");
@@ -94,6 +91,8 @@ async fn handle_heartbeat(
                     }
 
                     node.last_seen_at = Utc::now();
+                    node.host_local_time =
+                        chrono::DateTime::from_timestamp_millis(heartbeat.node_local_time_ms);
                     match app_ctx.node_repo.update(&node).await {
                         Ok(()) => {
                             println!("nodecom: node heartbeat update completed.");
@@ -140,6 +139,7 @@ async fn handle_register(
                 account_name: payload.account_name,
                 first_seen_at: Utc::now(),
                 last_seen_at: Utc::now(),
+                host_local_time: None, // could update registration to also pass this.
             };
 
             if let Err(err) = app_ctx.node_repo.add(&mut node).await {

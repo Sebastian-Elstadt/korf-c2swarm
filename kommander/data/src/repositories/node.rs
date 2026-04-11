@@ -42,11 +42,13 @@ impl NodeRespository for PgNodeRepository {
                 device_name, 
                 account_name, 
                 first_seen_at, 
-                last_seen_at
+                last_seen_at,
+                host_local_time
             ) VALUES (
                 $1, $2, $3, $4,
                 $5, $6, $7, $8,
-                $9, NOW(), NOW()
+                $9, NOW(), NOW(),
+                $10
             ) RETURNING id;
             "#,
         )
@@ -59,6 +61,7 @@ impl NodeRespository for PgNodeRepository {
         .bind(&node.username)
         .bind(&node.device_name)
         .bind(&node.account_name)
+        .bind(&node.host_local_time)
         .fetch_one(&self.pool)
         .await
         .map_err(|err| RepositoryError::DbQueryFailure(err.to_string()))?;
@@ -83,7 +86,8 @@ impl NodeRespository for PgNodeRepository {
                 device_name = $9,
                 account_name = $10,
                 first_seen_at = $11,
-                last_seen_at = $12
+                last_seen_at = $12,
+                host_local_time = $13
             WHERE id = $1
             "#,
         )
@@ -99,6 +103,7 @@ impl NodeRespository for PgNodeRepository {
         .bind(&node.account_name)
         .bind(&node.first_seen_at)
         .bind(&node.last_seen_at)
+        .bind(&node.host_local_time)
         .execute(&self.pool)
         .await
         .map_err(|err| RepositoryError::DbQueryFailure(err.to_string()))?;

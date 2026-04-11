@@ -1,4 +1,7 @@
-use sqlx::{prelude::FromRow, types::chrono::{DateTime, Utc}};
+use sqlx::{
+    prelude::FromRow,
+    types::chrono::{DateTime, Utc},
+};
 use uuid::Uuid;
 
 #[derive(Debug, Clone, FromRow)]
@@ -15,4 +18,5 @@ pub struct Node {
     pub account_name: Option<String>,
     pub first_seen_at: DateTime<Utc>,
     pub last_seen_at: DateTime<Utc>,
+    pub host_local_time: Option<DateTime<Utc>>,
 }

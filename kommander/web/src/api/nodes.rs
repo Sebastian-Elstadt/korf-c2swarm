@@ -20,6 +20,7 @@ pub struct NodeListItem {
     account_name: Option<String>,
     first_seen_at: String,
     last_seen_at: String,
+    host_local_time: Option<String>,
 }
 
 pub async fn list_nodes(
@@ -49,6 +50,7 @@ pub async fn list_nodes(
             account_name: r.account_name,
             first_seen_at: r.first_seen_at.to_rfc3339(),
             last_seen_at: r.last_seen_at.to_rfc3339(),
+            host_local_time: r.host_local_time.map(|ts| ts.to_rfc3339()),
         })
         .collect();
 

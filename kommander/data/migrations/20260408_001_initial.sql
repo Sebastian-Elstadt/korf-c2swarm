@@ -10,5 +10,7 @@ CREATE TABLE nodes (
     device_name TEXT,
     account_name TEXT,
     first_seen_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    last_seen_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    last_seen_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+
+    host_local_time TIMESTAMP NULL
 );
