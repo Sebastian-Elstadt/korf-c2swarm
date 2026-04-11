@@ -223,7 +223,7 @@
                           [attr.datetime]="log.created_at"
                           >{{ isoShort(log.created_at) }}</time
                         >
-                        <span class="log-ev">evt {{ log.event_type }}</span>
+                        <span class="log-ev">{{ eventTypeLabel(log.event_type) }}</span>
                       </div>
                       @if (log.text_content) {
                         <div class="log-text">{{ log.text_content }}</div>

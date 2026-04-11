@@ -7,6 +7,10 @@ import {
 } from '@angular/core';
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { catchError, interval, map, merge, of } from 'rxjs';
+import {
+  nodeLogEventTypeLabel,
+  nodeLogNetworkProtocolLabel
+} from '../../models/node-log-labels';
 import type { NodeLogEntry } from '../../models/node-log.model';
 import type { Node } from '../../models/node.model';
 import { CommandService } from '../../services/command.service';
@@ -110,9 +114,13 @@ export class Dashboard {
       parts.push(String(entry.network_port));
     }
     if (entry.network_protocol != null) {
-      parts.push(`proto ${entry.network_protocol}`);
+      parts.push(nodeLogNetworkProtocolLabel(entry.network_protocol));
     }
     return parts.length > 0 ? parts.join(' · ') : null;
+  }
+
+  eventTypeLabel(eventType: number): string {
+    return nodeLogEventTypeLabel(eventType);
   }
 
   selectNode(id: string): void {
