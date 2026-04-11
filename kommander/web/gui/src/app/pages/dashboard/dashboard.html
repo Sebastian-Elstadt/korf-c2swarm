@@ -89,6 +89,19 @@
             >
             <span class="muted hb-detail-raw"> ({{ node.last_seen_at }})</span>
           </dd>
+          <dt>Host local time</dt>
+          <dd>
+            @if (node.host_local_time) {
+              <span [attr.title]="node.host_local_time">{{
+                isoShort(node.host_local_time)
+              }}</span>
+              <span class="muted hb-detail-raw">
+                ({{ node.host_local_time }})</span
+              >
+            } @else {
+              <span class="muted">—</span>
+            }
+          </dd>
           <dt>Delivery</dt>
           <dd>
             <span

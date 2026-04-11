@@ -12,6 +12,8 @@ export interface NodeListItem {
   account_name: string | null;
   first_seen_at: string;
   last_seen_at: string;
+  /** RFC3339 from API; last reported host clock at heartbeat. */
+  host_local_time: string | null;
 }
 
 export type NodeDeliveryMode = 'push' | 'pull';

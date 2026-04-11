@@ -31,6 +31,7 @@ async fn init_ctx() -> Result<AppContext, String> {
     Ok(AppContext {
         health_port: Box::new(data::ports::PgHealthPort::new(db_pool.clone())),
         node_repo: Box::new(data::repositories::PgNodeRepository::new(db_pool.clone())),
+        node_log_repo: Box::new(data::repositories::PgNodeLogRepository::new(db_pool.clone()))
     })
 }
 

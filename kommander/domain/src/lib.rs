@@ -16,4 +16,5 @@ pub mod node;
 pub struct AppContext {
     pub health_port: Box<dyn ports::HealthPort>,
     pub node_repo: Box<dyn repositories::NodeRespository>,
+    pub node_log_repo: Box<dyn repositories::NodeLogRespository>,
 }

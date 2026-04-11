@@ -12,5 +12,17 @@ CREATE TABLE nodes (
     first_seen_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     last_seen_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 
-    host_local_time TIMESTAMP NULL
+    host_local_time TIMESTAMPTZ NULL
+);
+
+CREATE TABLE node_logs (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    node_id UUID NOT NULL REFERENCES nodes(id) ON DELETE CASCADE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+
+    event_type SMALLINT NOT NULL,
+    text_content TEXT NULL,
+    ipv4_addr TEXT NULL,
+    network_port INT NULL,
+    network_protocol SMALLINT NULL
 );
