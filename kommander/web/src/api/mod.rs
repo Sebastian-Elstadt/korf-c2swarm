@@ -10,7 +10,7 @@ pub fn router() -> Router<Arc<AppContext>> {
     Router::new()
         .route("/api/health", axum::routing::get(app::check_health))
         .route("/api/nodes", axum::routing::get(nodes::list_nodes))
-        .route("/api/nodes/node_id/logs", axum::routing::get(nodes::get_node_logs))
+        .route("/api/nodes/{node_id}/logs", axum::routing::get(nodes::get_node_logs))
 }
 
 #[derive(Serialize)]
