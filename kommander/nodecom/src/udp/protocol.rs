@@ -123,7 +123,11 @@ pub fn parse_heartbeat(data: &[u8]) -> Result<HeartbeatPayload, ProtocolError> {
     }
     let sig_bytes = data[i..i + sig_len].to_vec();
 
-    Ok(HeartbeatPayload { nodus_id, node_local_time_ms, sig_bytes })
+    Ok(HeartbeatPayload {
+        nodus_id,
+        node_local_time_ms,
+        sig_bytes,
+    })
 }
 
 fn format_mac(bytes: &[u8]) -> String {

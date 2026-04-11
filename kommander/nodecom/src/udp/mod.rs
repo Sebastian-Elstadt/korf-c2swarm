@@ -1,16 +1,12 @@
 use chrono::Utc;
 use domain::{AppContext, node};
-use korf_ed25519::{PUBLIC_KEY_LENGTH, SIGNATURE_LENGTH, verify_signature};
 use std::{net::SocketAddr, sync::Arc};
 use tokio::net::UdpSocket;
 use uuid::Uuid;
 
 mod protocol;
 
-/// Algorithm `1` in registration = Ed25519 (`nodus` / `korf-ed25519`).
 const ASYM_SEC_ALGO_ED25519: i16 = 1;
-
-/// Bytes signed for heartbeat: magic(3) + nodus_id(32) + local_ts_ms(8).
 const HEARTBEAT_SIGNED_LEN: usize = 3 + 32 + 8;
 
 pub async fn run(bind_addr: SocketAddr, app_ctx: Arc<AppContext>) -> Result<(), std::io::Error> {
@@ -58,15 +54,18 @@ async fn handle_heartbeat(
                         );
                         return;
                     }
-                    if node.asym_sec_pubkey.len() != PUBLIC_KEY_LENGTH {
+
+                    if node.asym_sec_pubkey.len() != korf_ed25519::PUBLIC_KEY_LENGTH {
                         eprintln!("nodecom: heartbeat rejected (bad pubkey length)");
                         return;
                     }
-                    if heartbeat.sig_bytes.len() != SIGNATURE_LENGTH {
+
+                    if heartbeat.sig_bytes.len() != korf_ed25519::SIGNATURE_LENGTH {
                         eprintln!("nodecom: heartbeat rejected (bad signature length)");
                         return;
                     }
-                    let pk: &[u8; PUBLIC_KEY_LENGTH] = match node.asym_sec_pubkey.as_slice().try_into()
+
+                    let pk: &[u8; korf_ed25519::PUBLIC_KEY_LENGTH] = match node.asym_sec_pubkey.as_slice().try_into()
                     {
                         Ok(v) => v,
                         Err(_) => {
@@ -74,7 +73,8 @@ async fn handle_heartbeat(
                             return;
                         }
                     };
-                    let sig: &[u8; SIGNATURE_LENGTH] = match heartbeat.sig_bytes.as_slice().try_into()
+
+                    let sig: &[u8; korf_ed25519::SIGNATURE_LENGTH] = match heartbeat.sig_bytes.as_slice().try_into()
                     {
                         Ok(v) => v,
                         Err(_) => {
@@ -82,11 +82,13 @@ async fn handle_heartbeat(
                             return;
                         }
                     };
-                    if data.len() < HEARTBEAT_SIGNED_LEN + 2 + SIGNATURE_LENGTH {
+
+                    if data.len() < HEARTBEAT_SIGNED_LEN + 2 + korf_ed25519::SIGNATURE_LENGTH {
                         eprintln!("nodecom: heartbeat rejected (packet too short for verify)");
                         return;
                     }
-                    if !verify_signature(pk, &data[0..HEARTBEAT_SIGNED_LEN], sig) {
+
+                    if !korf_ed25519::verify_signature(pk, &data[0..HEARTBEAT_SIGNED_LEN], sig) {
                         eprintln!("nodecom: heartbeat rejected (bad Ed25519 signature)");
                         return;
                     }
