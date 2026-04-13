@@ -2,13 +2,9 @@ use domain::{
     AppContext,
     node::{NodeCommandType, NodeLogNetworkProtocol},
 };
-use std::{
-    net::{SocketAddr, SocketAddrV4},
-    sync::Arc,
-    time::Duration,
-};
+use std::{net::SocketAddr, sync::Arc, time::Duration};
 use tokio::{
-    net::{UdpSocket, unix::SocketAddr},
+    net::UdpSocket,
     time::{sleep, timeout},
 };
 
@@ -59,7 +55,7 @@ async fn run_cmd_dispatcher(app_ctx: Arc<AppContext>) {
 
         let udp_sock = udp_sock.unwrap();
 
-        for cmd in queue.into_iter() {
+        for mut cmd in queue.into_iter() {
             let last_net_log = app_ctx
                 .node_log_repo
                 .get_last_network_log_by_node_id(cmd.node_id, Some(NodeLogNetworkProtocol::Udp))
@@ -70,7 +66,7 @@ async fn run_cmd_dispatcher(app_ctx: Arc<AppContext>) {
             }
 
             let last_net_log = last_net_log.unwrap();
-            if last_net_log == None {
+            if last_net_log.is_none() {
                 println!(
                     "nodecom: no last network log to execute command. (node id: {})",
                     cmd.node_id
@@ -79,7 +75,7 @@ async fn run_cmd_dispatcher(app_ctx: Arc<AppContext>) {
             }
 
             let last_net_log = last_net_log.unwrap();
-            if last_net_log.ipv4_addr == None || last_net_log.network_port == None {
+            if last_net_log.ipv4_addr.is_none() || last_net_log.network_port.is_none() {
                 println!(
                     "nodecom: no last network log contains invalid address. (node id: {})",
                     cmd.node_id
@@ -87,25 +83,27 @@ async fn run_cmd_dispatcher(app_ctx: Arc<AppContext>) {
                 continue;
             }
 
-            let target_addr: SocketAddr = SocketAddrV4(
-                last_net_log.ipv4_addr.unwrap(),
+            let target_addr: SocketAddr = SocketAddr::new(
+                std::net::IpAddr::V4(last_net_log.ipv4_addr.unwrap()),
                 last_net_log.network_port.unwrap(),
             );
 
             cmd.status = domain::node::NodeCommandStatus::Executing;
-            app_ctx.node_cmd_repo.update(&cmd).await;
+            let _ = app_ctx.node_cmd_repo.update(&cmd).await;
 
-            let skip_send = false;
-            let mut cmd_buf: Vec<u8> = vec![77, 33, cmd.command_type as u8];
+            let mut skip_send = false;
+            let mut cmd_buf: Vec<u8> = vec![77, 33, cmd.command_type.clone() as u8];
             match cmd.command_type {
                 NodeCommandType::ShellScript => {
-                    if let Some(text_content) = cmd.text_content
-                        && text_content.len() > 0
-                    {
-                        let text_content_bytes = text_content.as_bytes();
-                        let len = text_content_bytes.len() as u32;
-                        cmd_buf.extend_from_slice(len.to_be_bytes());
-                        cmd_buf.extend_from_slice(text_content_bytes);
+                    if let Some(text_content) = cmd.text_content.as_deref() {
+                        if !text_content.is_empty() {
+                            let text_content_bytes = text_content.as_bytes();
+                            let len = text_content_bytes.len() as u32;
+                            cmd_buf.extend_from_slice(&len.to_be_bytes());
+                            cmd_buf.extend_from_slice(text_content_bytes);
+                        } else {
+                            skip_send = true;
+                        }
                     } else {
                         skip_send = true;
                     }
@@ -113,11 +111,16 @@ async fn run_cmd_dispatcher(app_ctx: Arc<AppContext>) {
                 _ => {}
             };
 
-            let node_responded = false;
+            let mut node_responded = false;
             if !skip_send {
-                udp_sock.send_to(&cmd_buf, target_addr);
+                if let Err(err) = udp_sock.send_to(&cmd_buf, target_addr).await {
+                    eprintln!("nodecom: failed to send udp command: {err}");
+                    cmd.status = domain::node::NodeCommandStatus::Queued;
+                    let _ = app_ctx.node_cmd_repo.update(&cmd).await;
+                    continue;
+                }
 
-                let mut response_buf = [u8; 32];
+                let mut response_buf = [0u8; 32];
                 let response_result = timeout(
                     Duration::from_secs(10),
                     udp_sock.recv_from(&mut response_buf),
@@ -127,18 +130,18 @@ async fn run_cmd_dispatcher(app_ctx: Arc<AppContext>) {
                 // but, I need to get this POC done as soon as possible.
                 if let Ok(Ok((len, addr))) = response_result
                     && addr == target_addr
-                    && response_buf[..len] == b"ACK"
+                    && &response_buf[..len] == b"ACK"
                 {
                     node_responded = true;
                 } else {
                     cmd.status = domain::node::NodeCommandStatus::Queued;
-                    app_ctx.node_cmd_repo.update(&cmd).await;
+                    let _ = app_ctx.node_cmd_repo.update(&cmd).await;
                 }
             }
 
             if skip_send || node_responded {
                 cmd.status = domain::node::NodeCommandStatus::Completed;
-                app_ctx.node_cmd_repo.update(&cmd).await;
+                let _ = app_ctx.node_cmd_repo.update(&cmd).await;
             }
         }
 

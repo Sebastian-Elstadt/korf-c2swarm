@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use domain::{RepositoryError, node::NodeLogEntry, repositories::NodeLogRespository};
+use domain::{RepositoryError, node::{NodeLogEntry, NodeLogNetworkProtocol}, repositories::NodeLogRespository};
 use sqlx::types::Uuid;
 
 pub struct PgNodeLogRepository {
@@ -24,6 +24,14 @@ impl NodeLogRespository for PgNodeLogRepository {
             .map(|row| NodeLogEntry::from_pg_row(row))
             .collect::<Result<Vec<_>, _>>()
             .map_err(|err| RepositoryError::DbQueryFailure(err.to_string()))
+    }
+
+    async fn get_last_network_log_by_node_id(
+        &self,
+        node_id: Uuid,
+        protocol: Option<NodeLogNetworkProtocol>,
+    ) -> Result<Option<NodeLogEntry>, RepositoryError> {
+        panic!("todo");
     }
 
     async fn add(&self, entry: &mut NodeLogEntry) -> Result<(), RepositoryError> {
