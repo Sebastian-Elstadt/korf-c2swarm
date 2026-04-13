@@ -2,14 +2,11 @@ mod anti_analysis;
 mod c2com;
 mod identity;
 
-use std::{ops::Deref, sync::Arc};
-
 use tokio::{
     signal,
-    sync::{Mutex, mpsc},
+    sync::mpsc,
     time::{Duration, interval, sleep},
 };
-use tokio_util::sync::CancellationToken;
 
 use crate::{c2com::C2Com, identity::Identity};
 
@@ -84,11 +81,7 @@ async fn register_self(c2com: &mut C2Com, identity: &Identity) {
     }
 }
 
-async fn worker_loop(
-    mut c2com: C2Com,
-    identity: Identity,
-    mut rx: mpsc::Receiver<Command>,
-) {
+async fn worker_loop(mut c2com: C2Com, identity: Identity, mut rx: mpsc::Receiver<Command>) {
     loop {
         tokio::select! {
             cmd = rx.recv() => match cmd {

@@ -26,3 +26,15 @@ CREATE TABLE node_logs (
     network_port INT NULL,
     network_protocol SMALLINT NULL
 );
+
+CREATE TABLE node_commands_queue (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    node_id UUID NOT NULL REFERENCES nodes(id) ON DELETE CASCADE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+
+    "status" SMALLINT NOT NULL DEFAULT 0,
+    command_type SMALLINT NOT NULL,
+    last_attempted_at TIMESTAMPTZ NULL,
+    completed_at TIMESTAMPTZ NULL,
+    text_content TEXT NULL
+);
