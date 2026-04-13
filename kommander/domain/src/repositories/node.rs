@@ -1,7 +1,10 @@
 use async_trait::async_trait;
 use uuid::Uuid;
 
-use crate::{RepositoryError, node::{Node, NodeLogEntry}};
+use crate::{
+    RepositoryError,
+    node::{Node, NodeCommandEntry, NodeLogEntry},
+};
 
 #[async_trait]
 pub trait NodeRespository: Send + Sync + 'static {
@@ -17,4 +20,13 @@ pub trait NodeLogRespository: Send + Sync + 'static {
     async fn get_by_node_id(&self, node_id: Uuid) -> Result<Vec<NodeLogEntry>, RepositoryError>;
 
     async fn add(&self, entry: &mut NodeLogEntry) -> Result<(), RepositoryError>;
+}
+
+#[async_trait]
+pub trait NodeCommandRepository: Send + Sync + 'static {
+    async fn get_by_node_id(&self, node_id: Uuid) -> Result<Vec<NodeCommandEntry>, RepositoryError>;
+    async fn get_queued(&self) -> Result<Vec<NodeCommandEntry>, RepositoryError>;
+
+    async fn add(&self, entry: &mut NodeCommandEntry) -> Result<(), RepositoryError>;
+    async fn update(&self, entry: &NodeCommandEntry) -> Result<(), RepositoryError>;
 }

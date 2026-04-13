@@ -27,7 +27,7 @@ CREATE TABLE node_logs (
     network_protocol SMALLINT NULL
 );
 
-CREATE TABLE node_commands_queue (
+CREATE TABLE node_commands (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     node_id UUID NOT NULL REFERENCES nodes(id) ON DELETE CASCADE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
