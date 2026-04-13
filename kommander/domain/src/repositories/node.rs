@@ -3,7 +3,7 @@ use uuid::Uuid;
 
 use crate::{
     RepositoryError,
-    node::{Node, NodeCommandEntry, NodeLogEntry},
+    node::{Node, NodeCommandEntry, NodeLogEntry, NodeLogNetworkProtocol},
 };
 
 #[async_trait]
@@ -20,6 +20,7 @@ pub trait NodeRespository: Send + Sync + 'static {
 #[async_trait]
 pub trait NodeLogRespository: Send + Sync + 'static {
     async fn get_by_node_id(&self, node_id: Uuid) -> Result<Vec<NodeLogEntry>, RepositoryError>;
+    async fn get_last_network_log_by_node_id(&self, node_id: Uuid, protocol: Option<NodeLogNetworkProtocol>) -> Result<Option<NodeLogEntry>, RepositoryError>;
 
     async fn add(&self, entry: &mut NodeLogEntry) -> Result<(), RepositoryError>;
 }
