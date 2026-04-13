@@ -8,12 +8,19 @@ import {
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { catchError, interval, map, merge, of } from 'rxjs';
 import {
+  nodeCommandStatusLabel,
+  nodeCommandTypeLabel
+} from '../../models/node-command-labels';
+import type {
+  AddNodeCommandRequest,
+  NodeCommandEntry
+} from '../../models/node-command.model';
+import {
   nodeLogEventTypeLabel,
   nodeLogNetworkProtocolLabel
 } from '../../models/node-log-labels';
 import type { NodeLogEntry } from '../../models/node-log.model';
 import type { Node } from '../../models/node.model';
-import { CommandService } from '../../services/command.service';
 import { NodeService } from '../../services/node.service';
 
 /** Heartbeat: online when last_seen_at is at most this old (offline if strictly older). */
@@ -25,6 +32,7 @@ type NodesState =
   | { kind: 'ready'; nodes: Node[] };
 
 type LogsLoadState = 'idle' | 'loading' | 'error' | 'ready';
+type CommandsLoadState = 'loading' | 'error' | 'ready';
 
 @Component({
   selector: 'app-dashboard',
@@ -34,7 +42,6 @@ type LogsLoadState = 'idle' | 'loading' | 'error' | 'ready';
 })
 export class Dashboard {
   private readonly nodeService = inject(NodeService);
-  private readonly commandService = inject(CommandService);
 
   /** Advances every minute so "HB: N minutes ago" stays accurate while the view is open. */
   private readonly now = signal(Date.now());
@@ -56,9 +63,17 @@ export class Dashboard {
   });
 
   readonly selectedNodeId = signal<string | null>(null);
+  /** 0 = Shutdown, 1 = ShellScript — matches `NodeCommandType` in domain. */
+  readonly selectedCommandType = signal<0 | 1>(0);
+
   readonly logsState = signal<LogsLoadState>('idle');
   readonly logsEntries = signal<NodeLogEntry[]>([]);
-  readonly commands = this.commandService.commandsView(this.selectedNodeId);
+
+  readonly commandsState = signal<CommandsLoadState>('loading');
+  readonly commandsEntries = signal<NodeCommandEntry[]>([]);
+  readonly commandSubmitBusy = signal(false);
+  readonly commandActionError = signal<string | null>(null);
+
   readonly selectedNode = computed(() => {
     const id = this.selectedNodeId();
     return this.nodes().find((n) => n.id === id) ?? null;
@@ -78,9 +93,16 @@ export class Dashboard {
     });
 
     effect(() => {
-      this.selectedNodeId();
+      const id = this.selectedNodeId();
       this.logsEntries.set([]);
       this.logsState.set('idle');
+      this.commandsEntries.set([]);
+      this.commandActionError.set(null);
+      if (!id) {
+        this.commandsState.set('ready');
+        return;
+      }
+      this.loadCommands();
     });
   }
 
@@ -101,8 +123,83 @@ export class Dashboard {
     });
   }
 
+  loadCommands(): void {
+    const id = this.selectedNodeId();
+    if (!id) return;
+    this.commandsState.set('loading');
+    this.nodeService.getNodeCommands(id).subscribe({
+      next: (entries) => {
+        if (this.selectedNodeId() !== id) return;
+        this.commandsEntries.set(entries);
+        this.commandsState.set('ready');
+      },
+      error: () => {
+        if (this.selectedNodeId() !== id) return;
+        this.commandsState.set('error');
+      }
+    });
+  }
+
   activateLoadLogs(): void {
     this.loadLogs();
+  }
+
+  activateLoadCommands(): void {
+    this.loadCommands();
+  }
+
+  selectCommandType(t: 0 | 1): void {
+    this.selectedCommandType.set(t);
+    this.commandActionError.set(null);
+  }
+
+  activateSelectCommandType(t: 0 | 1): void {
+    this.selectCommandType(t);
+  }
+
+  onScriptKeydown(ev: KeyboardEvent, el: HTMLElement): void {
+    if (ev.key === 'Enter' && !ev.shiftKey) {
+      ev.preventDefault();
+      this.submitCommand(el);
+    }
+  }
+
+  submitCommand(scriptEl: HTMLElement | null): void {
+    const node = this.selectedNode();
+    if (!node || this.commandSubmitBusy()) return;
+    const type = this.selectedCommandType();
+    const text = scriptEl?.textContent?.trim() ?? '';
+    if (type === 1 && !text) {
+      this.commandActionError.set('Enter a script body for shell script commands.');
+      return;
+    }
+    this.commandActionError.set(null);
+    const body: AddNodeCommandRequest = { command_type: type };
+    if (type === 1) {
+      body.text_content = text;
+    }
+    this.commandSubmitBusy.set(true);
+    this.nodeService.addNodeCommand(node.id, body).subscribe({
+      next: () => {
+        this.commandSubmitBusy.set(false);
+        if (scriptEl) {
+          scriptEl.textContent = '';
+        }
+        this.loadCommands();
+      },
+      error: () => {
+        this.commandSubmitBusy.set(false);
+        this.commandActionError.set('Could not queue command.');
+      }
+    });
+  }
+
+  submitCommandFor(scriptLine: HTMLElement | undefined): void {
+    if (this.selectedCommandType() === 0) {
+      this.submitCommand(null);
+    } else {
+      this.submitCommand(scriptLine ?? null);
+    }
   }
 
   logNetworkMeta(entry: NodeLogEntry): string | null {
@@ -121,6 +218,14 @@ export class Dashboard {
 
   eventTypeLabel(eventType: number): string {
     return nodeLogEventTypeLabel(eventType);
+  }
+
+  commandStatusLabel(status: number): string {
+    return nodeCommandStatusLabel(status);
+  }
+
+  commandTypeLabel(commandType: number): string {
+    return nodeCommandTypeLabel(commandType);
   }
 
   selectNode(id: string): void {
@@ -143,9 +248,6 @@ export class Dashboard {
     );
   }
 
-  /**
-   * Relative time from ISO timestamp, e.g. "2 minutes ago". Uses `now` tick.
-   */
   private relativeFromIso(iso: string): string {
     void this.now();
     const t = new Date(iso).getTime();
@@ -170,47 +272,13 @@ export class Dashboard {
     return `${d} day${d === 1 ? '' : 's'} ${past ? 'ago' : 'from now'}`;
   }
 
-  /**
-   * Human-readable heartbeat from API `last_seen_at`, e.g. "HB: 2 minutes ago".
-   */
   heartbeatLabel(iso: string): string {
     const r = this.relativeFromIso(iso);
     return r === 'unknown' ? 'HB: unknown' : `HB: ${r}`;
   }
 
-  /** Relative label for `first_seen_at` in the detail panel (same rules as heartbeat text). */
   firstSeenLabel(iso: string): string {
     return this.relativeFromIso(iso);
-  }
-
-  onComposerKeydown(ev: KeyboardEvent, el: HTMLElement): void {
-    if (ev.key === 'Enter') {
-      ev.preventDefault();
-      this.enqueueFrom(el);
-    }
-  }
-
-  enqueueFrom(lineEl: HTMLElement): void {
-    const node = this.selectedNode();
-    if (!node) return;
-    const text = lineEl.textContent?.trim() ?? '';
-    if (!text) return;
-    this.commandService.enqueue(node.id, text, 'exec', node.deliveryMode);
-    lineEl.textContent = '';
-  }
-
-  simulateDelivery(): void {
-    const node = this.selectedNode();
-    if (!node) return;
-    this.commandService.simulateSend(node.id, node.deliveryMode);
-  }
-
-  activateEnqueue(lineEl: HTMLElement): void {
-    this.enqueueFrom(lineEl);
-  }
-
-  activateSimulate(): void {
-    this.simulateDelivery();
   }
 
   isoShort(iso: string): string {

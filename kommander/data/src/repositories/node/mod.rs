@@ -44,13 +44,11 @@ impl NodeRespository for PgNodeRepository {
     }
 
     async fn exists_by_node_id(&self, id: Uuid) -> Result<bool, RepositoryError> {
-        let count: i16 = sqlx::query_scalar("SELECT COUNT(1) FROM nodes WHERE id = $1")
+        sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM nodes WHERE id = $1)")
             .bind(id)
             .fetch_one(&self.pool)
             .await
-            .map_err(|err| RepositoryError::DbQueryFailure(err.to_string()))?;
-
-        Ok(count > 0)
+            .map_err(|err| RepositoryError::DbQueryFailure(err.to_string()))
     }
 
     async fn add(&self, node: &mut Node) -> Result<(), RepositoryError> {

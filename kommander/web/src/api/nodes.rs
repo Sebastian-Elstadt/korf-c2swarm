@@ -150,7 +150,7 @@ pub async fn add_node_command(
         .node_repo
         .exists_by_node_id(node_id)
         .await
-        .map_err(|err| ApiError::internal(format!("failed to load node logs: {err}")))?
+        .map_err(|err| ApiError::internal(format!("failed to verify node: {err}")))?
     {
         return Err(ApiError::not_found(format!(
             "no node found with id {node_id}"

@@ -114,73 +114,144 @@
           </dd>
         </dl>
 
-        <div class="composer">
-          <span class="composer-label">Command</span>
-          <div
-            class="cmd-line"
-            contenteditable="true"
-            spellcheck="false"
-            #cmdLine
-            (keydown)="onComposerKeydown($event, cmdLine)"
-          ></div>
-          <div class="composer-actions">
+        <div class="cmd-compose">
+          <span class="composer-label">Command type</span>
+          <div class="cmd-type-row" role="group" aria-label="Command type">
             <div
-              class="btn btn--primary"
+              class="cmd-type-opt"
+              [class.cmd-type-opt--on]="selectedCommandType() === 0"
               role="button"
               tabindex="0"
-              (click)="activateEnqueue(cmdLine)"
-              (keydown.enter)="activateEnqueue(cmdLine)"
-              (keydown.space)="$event.preventDefault(); activateEnqueue(cmdLine)"
+              (click)="activateSelectCommandType(0)"
+              (keydown.enter)="activateSelectCommandType(0)"
+              (keydown.space)="$event.preventDefault(); activateSelectCommandType(0)"
             >
-              Enqueue
+              Shutdown
             </div>
             <div
-              class="btn btn--ghost"
+              class="cmd-type-opt"
+              [class.cmd-type-opt--on]="selectedCommandType() === 1"
               role="button"
               tabindex="0"
-              (click)="activateSimulate()"
-              (keydown.enter)="activateSimulate()"
-              (keydown.space)="$event.preventDefault(); activateSimulate()"
+              (click)="activateSelectCommandType(1)"
+              (keydown.enter)="activateSelectCommandType(1)"
+              (keydown.space)="$event.preventDefault(); activateSelectCommandType(1)"
             >
-              Simulate send / poll
+              Shell script
             </div>
           </div>
+          @if (selectedCommandType() === 1) {
+            <span class="composer-label">Script body</span>
+            <div
+              class="cmd-line cmd-line--multiline"
+              contenteditable="true"
+              spellcheck="false"
+              #scriptLine
+              (keydown)="onScriptKeydown($event, scriptLine)"
+            ></div>
+            @if (commandActionError(); as cmdErr) {
+              <p class="muted logs-error cmd-compose-error">{{ cmdErr }}</p>
+            }
+            <div class="composer-actions">
+              <div
+                class="btn btn--primary"
+                [class.btn--busy]="commandSubmitBusy()"
+                role="button"
+                tabindex="0"
+                (click)="submitCommandFor(scriptLine)"
+                (keydown.enter)="submitCommandFor(scriptLine)"
+                (keydown.space)="$event.preventDefault(); submitCommandFor(scriptLine)"
+              >
+                Queue command
+              </div>
+            </div>
+          } @else {
+            <p class="muted cmd-type-hint">
+              Queues a shutdown command (no script payload).
+            </p>
+            @if (commandActionError(); as cmdErr) {
+              <p class="muted logs-error cmd-compose-error">{{ cmdErr }}</p>
+            }
+            <div class="composer-actions">
+              <div
+                class="btn btn--primary"
+                [class.btn--busy]="commandSubmitBusy()"
+                role="button"
+                tabindex="0"
+                (click)="submitCommandFor(undefined)"
+                (keydown.enter)="submitCommandFor(undefined)"
+                (keydown.space)="$event.preventDefault(); submitCommandFor(undefined)"
+              >
+                Queue command
+              </div>
+            </div>
+          }
         </div>
 
         <div class="queue">
-          <h3 class="queue-title">Command queue</h3>
-          @if (commands().length === 0) {
-            <p class="muted">No commands for this node.</p>
-          } @else {
-            <div class="queue-rows">
-              @for (cmd of commands(); track cmd.id) {
-                <div class="queue-row">
-                  <div class="queue-row__main">
-                    <span class="queue-kind">{{ cmd.kind }}</span>
-                    <span class="queue-payload">{{ cmd.payload }}</span>
-                  </div>
-                  <div class="queue-row__meta">
-                    @switch (cmd.status) {
-                      @case ('pending') {
-                        <span class="status status--pending">pending</span>
+          <div class="queue__head">
+            <h3 class="queue-title">Command queue</h3>
+            <div
+              class="btn btn--ghost btn--compact"
+              role="button"
+              tabindex="0"
+              (click)="activateLoadCommands()"
+              (keydown.enter)="activateLoadCommands()"
+              (keydown.space)="$event.preventDefault(); activateLoadCommands()"
+            >
+              Refresh
+            </div>
+          </div>
+          @switch (commandsState()) {
+            @case ('loading') {
+              <p class="muted">Loading commands…</p>
+            }
+            @case ('error') {
+              <p class="muted logs-error">Could not load command queue.</p>
+            }
+            @case ('ready') {
+              @if (commandsEntries().length === 0) {
+                <p class="muted">No commands queued for this node.</p>
+              } @else {
+                <div class="queue-rows">
+                  @for (cmd of commandsEntries(); track cmd.id) {
+                    <div class="queue-row">
+                      <div class="queue-row__main">
+                        <span class="queue-kind">{{
+                          commandTypeLabel(cmd.command_type)
+                        }}</span>
+                        @if (cmd.text_content) {
+                          <span class="queue-payload">{{ cmd.text_content }}</span>
+                        }
+                      </div>
+                      <div class="queue-row__meta">
+                        <span
+                          class="status"
+                          [class.status--cmd-queued]="cmd.status === 0"
+                          [class.status--cmd-exec]="cmd.status === 1"
+                          [class.status--cmd-done]="cmd.status === 2"
+                          [class.status--cmd-cancel]="cmd.status === 3 || cmd.status === 4"
+                          >{{ commandStatusLabel(cmd.status) }}</span
+                        >
+                        <span class="muted queue-time">{{
+                          isoShort(cmd.created_at)
+                        }}</span>
+                      </div>
+                      @if (cmd.last_attempted_at || cmd.completed_at) {
+                        <div class="queue-row__extra muted">
+                          @if (cmd.last_attempted_at) {
+                            <span>Last attempt: {{ isoShort(cmd.last_attempted_at) }}</span>
+                          }
+                          @if (cmd.completed_at) {
+                            <span>Done: {{ isoShort(cmd.completed_at) }}</span>
+                          }
+                        </div>
                       }
-                      @case ('queued_for_poll') {
-                        <span class="status status--poll">queued poll</span>
-                      }
-                      @case ('sent') {
-                        <span class="status status--sent">sent</span>
-                      }
-                      @case ('failed') {
-                        <span class="status status--failed">failed</span>
-                      }
-                    }
-                    <span class="muted queue-time">{{
-                      isoShort(cmd.createdAt)
-                    }}</span>
-                  </div>
+                    </div>
+                  }
                 </div>
               }
-            </div>
+            }
           }
         </div>
 

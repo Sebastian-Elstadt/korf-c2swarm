@@ -1,6 +1,10 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable, map } from 'rxjs';
+import type {
+  AddNodeCommandRequest,
+  NodeCommandEntry
+} from '../models/node-command.model';
 import type { NodeLogEntry } from '../models/node-log.model';
 import type { Node, NodeListItem } from '../models/node.model';
 import { API_BASE } from './api.constants';
@@ -25,6 +29,22 @@ export class NodeService {
   getNodeLogs(nodeId: string): Observable<NodeLogEntry[]> {
     return this.http.get<NodeLogEntry[]>(
       `${API_BASE}/nodes/${encodeURIComponent(nodeId)}/logs`
+    );
+  }
+
+  getNodeCommands(nodeId: string): Observable<NodeCommandEntry[]> {
+    return this.http.get<NodeCommandEntry[]>(
+      `${API_BASE}/nodes/${encodeURIComponent(nodeId)}/commands`
+    );
+  }
+
+  addNodeCommand(
+    nodeId: string,
+    body: AddNodeCommandRequest
+  ): Observable<NodeCommandEntry> {
+    return this.http.post<NodeCommandEntry>(
+      `${API_BASE}/nodes/${encodeURIComponent(nodeId)}/commands`,
+      body
     );
   }
 }
