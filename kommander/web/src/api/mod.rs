@@ -1,4 +1,8 @@
-use axum::{Json, Router, http::StatusCode, response::{IntoResponse, Response}};
+use axum::{
+    Json, Router,
+    http::StatusCode,
+    response::{IntoResponse, Response},
+};
 use domain::AppContext;
 use serde::Serialize;
 use std::sync::Arc;
@@ -10,9 +14,18 @@ pub fn router() -> Router<Arc<AppContext>> {
     Router::new()
         .route("/api/health", axum::routing::get(app::check_health))
         .route("/api/nodes", axum::routing::get(nodes::list_nodes))
-        .route("/api/nodes/{node_id}/logs", axum::routing::get(nodes::get_node_logs))
-        .route("/api/nodes/{node_id}/commands", axum::routing::get(nodes::get_node_command_queue))
-        .route("/api/nodes/{node_id}/commands", axum::routing::post(nodes::add_node_command))
+        .route(
+            "/api/nodes/{node_id}/logs",
+            axum::routing::get(nodes::get_node_logs),
+        )
+        .route(
+            "/api/nodes/{node_id}/commands",
+            axum::routing::get(nodes::get_node_command_queue),
+        )
+        .route(
+            "/api/nodes/{node_id}/commands",
+            axum::routing::post(nodes::add_node_command),
+        )
 }
 
 #[derive(Serialize)]

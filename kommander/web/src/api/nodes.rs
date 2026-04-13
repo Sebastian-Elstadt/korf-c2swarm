@@ -137,7 +137,6 @@ pub async fn get_node_command_queue(
 
 #[derive(Deserialize)]
 pub struct AddNodeCommandRequest {
-    node_id: String,
     command_type: u8,
     text_content: Option<String>,
 }
@@ -162,6 +161,7 @@ pub async fn add_node_command(
         NodeCommandType::try_from(body.command_type).map_err(|err| ApiError::bad_request(err))?;
 
     let mut cmd = NodeCommandEntry::new(node_id, cmd_type);
+    cmd.text_content = body.text_content;
     app_ctx.node_cmd_repo.add(&mut cmd).await.map_err(|err| {
         ApiError::internal(format!("failed to add command entry to queue: {err}"))
     })?;
