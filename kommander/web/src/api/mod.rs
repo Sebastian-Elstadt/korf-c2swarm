@@ -11,6 +11,8 @@ pub fn router() -> Router<Arc<AppContext>> {
         .route("/api/health", axum::routing::get(app::check_health))
         .route("/api/nodes", axum::routing::get(nodes::list_nodes))
         .route("/api/nodes/{node_id}/logs", axum::routing::get(nodes::get_node_logs))
+        .route("/api/nodes/{node_id}/commands", axum::routing::get(nodes::get_node_command_queue))
+        .route("/api/nodes/{node_id}/commands", axum::routing::post(nodes::add_node_command))
 }
 
 #[derive(Serialize)]
@@ -30,6 +32,22 @@ impl ApiError {
         Self {
             status: StatusCode::INTERNAL_SERVER_ERROR,
             error: "internal_error",
+            message: msg.into(),
+        }
+    }
+
+    fn not_found(msg: impl Into<String>) -> Self {
+        Self {
+            status: StatusCode::NOT_FOUND,
+            error: "not_found",
+            message: msg.into(),
+        }
+    }
+
+    fn bad_request(msg: impl Into<String>) -> Self {
+        Self {
+            status: StatusCode::BAD_REQUEST,
+            error: "bad_request",
             message: msg.into(),
         }
     }

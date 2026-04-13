@@ -10,6 +10,8 @@ use crate::{
 pub trait NodeRespository: Send + Sync + 'static {
     async fn get_all(&self) -> Result<Vec<Node>, RepositoryError>;
     async fn get_by_nodus_id(&self, nodus_id: [u8; 32]) -> Result<Option<Node>, RepositoryError>;
+    async fn get_by_node_id(&self, id: Uuid) -> Result<Option<Node>, RepositoryError>;
+    async fn exists_by_node_id(&self, id: Uuid) -> Result<bool, RepositoryError>;
 
     async fn add(&self, node: &mut Node) -> Result<(), RepositoryError>;
     async fn update(&self, node: &Node) -> Result<(), RepositoryError>;

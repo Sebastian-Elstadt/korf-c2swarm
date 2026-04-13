@@ -34,6 +34,17 @@ pub enum NodeCommandType {
     ShellScript = 1,
 }
 
+impl TryFrom<u8> for NodeCommandType {
+    type Error = String;
+    fn try_from(value: u8) -> Result<Self, Self::Error> {
+        match value {
+            0 => Ok(NodeCommandType::Shutdown),
+            1 => Ok(NodeCommandType::ShellScript),
+            _ => Err(format!("unknown command type: {value}")),
+        }
+    }
+}
+
 impl From<i16> for NodeCommandType {
     fn from(value: i16) -> Self {
         match value {

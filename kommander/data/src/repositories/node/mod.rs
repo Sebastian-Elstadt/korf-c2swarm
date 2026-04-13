@@ -6,6 +6,7 @@ pub use log::*;
 
 mod command;
 pub use command::*;
+use sqlx::types::Uuid;
 
 pub struct PgNodeRepository {
     pool: sqlx::PgPool,
@@ -32,6 +33,24 @@ impl NodeRespository for PgNodeRepository {
             .fetch_optional(&self.pool)
             .await
             .map_err(|err| RepositoryError::DbQueryFailure(err.to_string()))
+    }
+
+    async fn get_by_node_id(&self, id: Uuid) -> Result<Option<Node>, RepositoryError> {
+        sqlx::query_as("SELECT * FROM nodes WHERE id = $1")
+            .bind(id)
+            .fetch_optional(&self.pool)
+            .await
+            .map_err(|err| RepositoryError::DbQueryFailure(err.to_string()))
+    }
+
+    async fn exists_by_node_id(&self, id: Uuid) -> Result<bool, RepositoryError> {
+        let count: i16 = sqlx::query_scalar("SELECT COUNT(1) FROM nodes WHERE id = $1")
+            .bind(id)
+            .fetch_one(&self.pool)
+            .await
+            .map_err(|err| RepositoryError::DbQueryFailure(err.to_string()))?;
+
+        Ok(count > 0)
     }
 
     async fn add(&self, node: &mut Node) -> Result<(), RepositoryError> {

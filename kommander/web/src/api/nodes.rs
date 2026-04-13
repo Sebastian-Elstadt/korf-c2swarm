@@ -1,9 +1,10 @@
 use axum::extract::{Path, State};
 use axum::response::Json;
 use domain::AppContext;
-use serde::Serialize;
-use uuid::Uuid;
+use domain::node::{NodeCommandEntry, NodeCommandType};
+use serde::{Deserialize, Serialize};
 use std::sync::Arc;
+use uuid::Uuid;
 
 use crate::api::ApiError;
 
@@ -58,7 +59,6 @@ pub async fn list_nodes(
     Ok(Json(out))
 }
 
-
 #[derive(Serialize)]
 pub struct NodeLogEntryItem {
     id: String,
@@ -72,7 +72,7 @@ pub struct NodeLogEntryItem {
 
 pub async fn get_node_logs(
     State(app_ctx): State<Arc<AppContext>>,
-    Path(node_id): Path<Uuid>
+    Path(node_id): Path<Uuid>,
 ) -> Result<Json<Vec<NodeLogEntryItem>>, ApiError> {
     let mut logs = app_ctx
         .node_log_repo
@@ -80,7 +80,6 @@ pub async fn get_node_logs(
         .await
         .map_err(|err| ApiError::internal(format!("failed to load node logs: {err}")))?;
 
-    logs.sort_by_key(|n| n.created_at);
     logs.reverse();
 
     let out: Vec<NodeLogEntryItem> = logs
@@ -92,9 +91,88 @@ pub async fn get_node_logs(
             text_content: r.text_content,
             ipv4_addr: r.ipv4_addr.map(|v| v.to_string()),
             network_port: r.network_port.map(|v| v as u16),
-            network_protocol: r.network_protocol.map(|v| v as u8)
+            network_protocol: r.network_protocol.map(|v| v as u8),
         })
         .collect();
 
     Ok(Json(out))
+}
+
+#[derive(Serialize)]
+pub struct NodeCommandEntryItem {
+    id: String,
+    created_at: String,
+    status: u8,
+    command_type: u8,
+    last_attempted_at: Option<String>,
+    completed_at: Option<String>,
+    text_content: Option<String>,
+}
+
+pub async fn get_node_command_queue(
+    State(app_ctx): State<Arc<AppContext>>,
+    Path(node_id): Path<Uuid>,
+) -> Result<Json<Vec<NodeCommandEntryItem>>, ApiError> {
+    let logs = app_ctx
+        .node_cmd_repo
+        .get_by_node_id(node_id)
+        .await
+        .map_err(|err| ApiError::internal(format!("failed to load node logs: {err}")))?;
+
+    let out: Vec<NodeCommandEntryItem> = logs
+        .into_iter()
+        .map(|r| NodeCommandEntryItem {
+            id: r.id.to_string(),
+            created_at: r.created_at.to_rfc3339(),
+            status: r.status as u8,
+            command_type: r.command_type as u8,
+            last_attempted_at: r.last_attempted_at.map(|v| v.to_rfc3339()),
+            completed_at: r.completed_at.map(|v| v.to_rfc3339()),
+            text_content: r.text_content,
+        })
+        .collect();
+
+    Ok(Json(out))
+}
+
+#[derive(Deserialize)]
+pub struct AddNodeCommandRequest {
+    node_id: String,
+    command_type: u8,
+    text_content: Option<String>,
+}
+
+pub async fn add_node_command(
+    State(app_ctx): State<Arc<AppContext>>,
+    Path(node_id): Path<Uuid>,
+    Json(body): Json<AddNodeCommandRequest>,
+) -> Result<Json<NodeCommandEntryItem>, ApiError> {
+    if !app_ctx
+        .node_repo
+        .exists_by_node_id(node_id)
+        .await
+        .map_err(|err| ApiError::internal(format!("failed to load node logs: {err}")))?
+    {
+        return Err(ApiError::not_found(format!(
+            "no node found with id {node_id}"
+        )));
+    }
+
+    let cmd_type =
+        NodeCommandType::try_from(body.command_type).map_err(|err| ApiError::bad_request(err))?;
+
+    let mut cmd = NodeCommandEntry::new(node_id, cmd_type);
+    app_ctx.node_cmd_repo.add(&mut cmd).await.map_err(|err| {
+        ApiError::internal(format!("failed to add command entry to queue: {err}"))
+    })?;
+
+    Ok(Json(NodeCommandEntryItem {
+        id: cmd.id.to_string(),
+        created_at: cmd.created_at.to_rfc3339(),
+        status: cmd.status as u8,
+        command_type: cmd.command_type as u8,
+        last_attempted_at: cmd.last_attempted_at.map(|v| v.to_rfc3339()),
+        completed_at: cmd.completed_at.map(|v| v.to_rfc3339()),
+        text_content: cmd.text_content,
+    }))
 }

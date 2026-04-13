@@ -18,7 +18,7 @@ impl NodeCommandRepository for PgNodeCommandRepository {
         &self,
         node_id: Uuid,
     ) -> Result<Vec<NodeCommandEntry>, RepositoryError> {
-        sqlx::query("SELECT * FROM node_commands WHERE node_id = $1")
+        sqlx::query("SELECT * FROM node_commands WHERE node_id = $1 ORDER BY created_at ASC")
             .bind(node_id)
             .fetch_all(&self.pool)
             .await
