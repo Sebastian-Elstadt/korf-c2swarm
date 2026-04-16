@@ -77,22 +77,29 @@ impl C2Com {
 
         let mut buf = [0u8; 65535];
 
-        let len_opt = if timeout_secs == 0 {
-            sock.recv(&mut buf).await.ok()
+        let received_opt = if timeout_secs == 0 {
+            sock.recv_from(&mut buf).await.ok()
         } else {
             timeout(
                 Duration::from_secs(timeout_secs as u64),
-                sock.recv(&mut buf),
+                sock.recv_from(&mut buf),
             )
             .await
             .ok()
             .transpose()?
         };
 
-        match len_opt {
-            Some(0) | None => Ok(None),
-            Some(len) => Ok(Some(buf[..len].to_vec())),
+        if let Some((len, addr)) = received_opt {
+            println!("got listen packet from: {}", addr.to_string());
+            return Ok(Some(buf[..len].to_vec()));
         }
+
+        return Ok(None);
+
+        // match received_opt {
+        //     Some() | None => Ok(None),
+        //     Some(len) => Ok(Some(buf[..len].to_vec())),
+        // }
     }
 }
 

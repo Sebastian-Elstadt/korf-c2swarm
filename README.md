@@ -1,4 +1,4 @@
-# KORF
+# KORF [ Under Development ]
 
 **Kommander** (control plane) and **nodus** (lightweight node agent)—a small Rust project exploring command-and-control style networking, cryptography, and persistence. This repo is a **learning exercise** and portfolio piece: it shows how I work in **Rust** (async I/O, crates, Postgres, Axum) and how I use **AI tooling** for faster iteration on straightforward surfaces—mainly the **Angular GUI**—while keeping core protocol and server logic hand-owned and reviewed.
 

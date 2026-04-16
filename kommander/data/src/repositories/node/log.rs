@@ -1,5 +1,9 @@
 use async_trait::async_trait;
-use domain::{RepositoryError, node::{NodeLogEntry, NodeLogNetworkProtocol}, repositories::NodeLogRespository};
+use domain::{
+    RepositoryError,
+    node::{NodeLogEntry, NodeLogNetworkProtocol},
+    repositories::NodeLogRespository,
+};
 use sqlx::types::Uuid;
 
 pub struct PgNodeLogRepository {
@@ -31,7 +35,31 @@ impl NodeLogRespository for PgNodeLogRepository {
         node_id: Uuid,
         protocol: Option<NodeLogNetworkProtocol>,
     ) -> Result<Option<NodeLogEntry>, RepositoryError> {
-        panic!("todo");
+        let row = sqlx::query(
+            r#"
+            SELECT * FROM node_logs 
+            WHERE node_id = $1 
+                AND ipv4_addr IS NOT NULL 
+                AND network_port IS NOT NULL 
+                AND ($2 IS NULL OR network_protocol = $2)
+                ORDER BY created_at DESC 
+                LIMIT 1
+            "#,
+        )
+        .bind(node_id)
+        .bind(protocol.map(|v| v as i32))
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(|err| RepositoryError::DbQueryFailure(err.to_string()))?;
+
+        if row.is_none() {
+            return Ok(None);
+        }
+
+        let entry = NodeLogEntry::from_pg_row(row.unwrap())
+            .map_err(|err| RepositoryError::DbQueryFailure(err.to_string()))?;
+
+        Ok(Some(entry))
     }
 
     async fn add(&self, entry: &mut NodeLogEntry) -> Result<(), RepositoryError> {
