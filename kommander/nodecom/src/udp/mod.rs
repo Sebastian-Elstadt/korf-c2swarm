@@ -4,7 +4,7 @@ use domain::{
     node::{self, NodeLogEntry, NodeLogNetworkProtocol},
 };
 use std::{net::SocketAddr, sync::Arc};
-use tokio::net::UdpSocket;
+use tokio::{net::UdpSocket, sync::mpsc};
 use uuid::Uuid;
 
 mod protocol;
@@ -12,8 +12,11 @@ mod protocol;
 const ASYM_SEC_ALGO_ED25519: i16 = 1;
 const HEARTBEAT_SIGNED_LEN: usize = 3 + 32 + 8;
 
-pub async fn run(bind_addr: SocketAddr, app_ctx: Arc<AppContext>) -> Result<(), std::io::Error> {
-    let sock = UdpSocket::bind(bind_addr).await?;
+pub async fn run(
+    sock: Arc<UdpSocket>,
+    app_ctx: Arc<AppContext>,
+    ack_tx: mpsc::Sender<(SocketAddr, Vec<u8>)>,
+) -> Result<(), std::io::Error> {
     let mut buf = [0u8; 65535];
 
     loop {
@@ -21,6 +24,10 @@ pub async fn run(bind_addr: SocketAddr, app_ctx: Arc<AppContext>) -> Result<(), 
         let data = &buf[..len];
 
         if data.len() < 3 || data[0] != protocol::MAGIC_0 || data[1] != protocol::MAGIC_1 {
+            // non-protocol packets: forward command ACKs to the dispatcher, drop the rest
+            if data == b"ACK" {
+                let _ = ack_tx.try_send((addr, data.to_vec()));
+            }
             continue;
         }
 

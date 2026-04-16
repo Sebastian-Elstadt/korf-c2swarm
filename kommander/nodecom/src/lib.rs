@@ -5,7 +5,8 @@ use domain::{
 use std::{net::SocketAddr, sync::Arc, time::Duration};
 use tokio::{
     net::UdpSocket,
-    time::{sleep, timeout},
+    sync::mpsc,
+    time::{Instant, sleep, timeout},
 };
 
 mod udp;
@@ -16,9 +17,16 @@ pub struct NodeComOptions {
 }
 
 pub async fn run(options: NodeComOptions) -> Result<(), std::io::Error> {
-    let dispatcher_thread = tokio::spawn(run_cmd_dispatcher(options.app_ctx.clone()));
+    let sock = Arc::new(UdpSocket::bind(options.udp_bind).await?);
+    let (ack_tx, ack_rx) = mpsc::channel::<(SocketAddr, Vec<u8>)>(64);
 
-    udp::run(options.udp_bind, options.app_ctx.clone()).await?;
+    let dispatcher_thread = tokio::spawn(run_cmd_dispatcher(
+        options.app_ctx.clone(),
+        sock.clone(),
+        ack_rx,
+    ));
+
+    udp::run(sock, options.app_ctx.clone(), ack_tx).await?;
 
     let _ = tokio::join!(dispatcher_thread);
 
@@ -30,8 +38,15 @@ pub async fn run(options: NodeComOptions) -> Result<(), std::io::Error> {
 // if the nodes are communicating via http requests, then a separate mechanism would be needed to always fetch a list of queued commands on any http request
 // to supply that command list to the node in the response.
 // however, as this entire project is for demonstration purposes, and I have so far only built UDP comms, this will do.
-// building other communication methods is "trivial" - all this just proves I can do it if I need to.
-async fn run_cmd_dispatcher(app_ctx: Arc<AppContext>) {
+//
+// the udp socket is shared with the listener so outgoing commands use the same source port nodus registered to.
+// this matters because NAT/conntrack entries (including docker's masquerade) only route return traffic that
+// matches an already-active flow; a fresh ephemeral socket would be dropped at the host boundary.
+async fn run_cmd_dispatcher(
+    app_ctx: Arc<AppContext>,
+    udp_sock: Arc<UdpSocket>,
+    mut ack_rx: mpsc::Receiver<(SocketAddr, Vec<u8>)>,
+) {
     loop {
         let queue = app_ctx.node_cmd_repo.get_queued().await;
         if let Err(err) = queue {
@@ -45,15 +60,6 @@ async fn run_cmd_dispatcher(app_ctx: Arc<AppContext>) {
             sleep(Duration::from_secs(2)).await;
             continue;
         }
-
-        let udp_sock = UdpSocket::bind("0.0.0.0:0").await;
-        if let Err(err) = udp_sock {
-            eprintln!("nodecom: failed to bind local udp port: {err}");
-            sleep(Duration::from_secs(2)).await;
-            continue;
-        }
-
-        let udp_sock = udp_sock.unwrap();
 
         for mut cmd in queue.into_iter() {
             let last_net_log = app_ctx
@@ -113,6 +119,9 @@ async fn run_cmd_dispatcher(app_ctx: Arc<AppContext>) {
 
             let mut node_responded = false;
             if !skip_send {
+                // drain any stale ACKs left over from prior iterations
+                while ack_rx.try_recv().is_ok() {}
+
                 if let Err(err) = udp_sock.send_to(&cmd_buf, target_addr).await {
                     eprintln!("nodecom: failed to send udp command: {err}");
                     cmd.status = domain::node::NodeCommandStatus::Queued;
@@ -120,20 +129,22 @@ async fn run_cmd_dispatcher(app_ctx: Arc<AppContext>) {
                     continue;
                 }
 
-                let mut response_buf = [0u8; 32];
-                let response_result = timeout(
-                    Duration::from_secs(10),
-                    udp_sock.recv_from(&mut response_buf),
-                )
-                .await;
-                // this isnt great, would be better to filter through any incoming packets until the end of the 10 seconds
-                // but, I need to get this POC done as soon as possible.
-                if let Ok(Ok((len, addr))) = response_result
-                    && addr == target_addr
-                    && &response_buf[..len] == b"ACK"
-                {
-                    node_responded = true;
-                } else {
+                let wait_start = Instant::now();
+                let deadline = Duration::from_secs(10);
+                while wait_start.elapsed() < deadline {
+                    let remaining = deadline.saturating_sub(wait_start.elapsed());
+                    match timeout(remaining, ack_rx.recv()).await {
+                        Ok(Some((addr, data))) => {
+                            if addr == target_addr && data == b"ACK" {
+                                node_responded = true;
+                                break;
+                            }
+                        }
+                        Ok(None) | Err(_) => break,
+                    }
+                }
+
+                if !node_responded {
                     cmd.status = domain::node::NodeCommandStatus::Queued;
                     let _ = app_ctx.node_cmd_repo.update(&cmd).await;
                 }
